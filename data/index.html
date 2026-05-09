@@ -9,10 +9,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#0f1020" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="OpenLitter" />
   <title>OpenLitter</title>
   <link rel="manifest" href="/manifest.json" />
   <link rel="icon" type="image/svg+xml" href="/icon.svg" />
-  <link rel="apple-touch-icon" href="/icon.svg" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/icon-180.png" />
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
@@ -240,6 +243,19 @@
   </main>
 
   <div id="toast" class="toast" hidden></div>
+
+  <!-- Install banner (shown on iOS Safari and Chromium-based browsers) -->
+  <div id="install-banner" class="install-banner" hidden>
+    <div class="install-icon" aria-hidden="true">
+      <img src="/icon-192.png" alt="" />
+    </div>
+    <div class="install-text">
+      <strong>Install OpenLitter</strong>
+      <span id="install-hint" class="install-hint"></span>
+    </div>
+    <button id="install-action" class="btn primary install-action" hidden>Install</button>
+    <button id="install-close" class="install-close" aria-label="Dismiss">✕</button>
+  </div>
 
   <script src="/app.js"></script>
 </body>

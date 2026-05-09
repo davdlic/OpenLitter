@@ -4,7 +4,7 @@
  * Licensed under the GNU General Public License v3.0 - see LICENSE.
  */
 
-const CACHE = 'openlitter-v1';
+const CACHE = 'openlitter-v2';
 const ASSETS = [
   '/',
   '/index.html',
@@ -12,6 +12,10 @@ const ASSETS = [
   '/app.js',
   '/manifest.json',
   '/icon.svg',
+  '/icon-180.png',
+  '/icon-192.png',
+  '/icon-512.png',
+  '/icon-maskable-512.png',
 ];
 
 self.addEventListener('install', e => {
