@@ -1,0 +1,89 @@
+name: Bug report
+description: Something is broken or behaving unexpectedly
+title: "[Bug] "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report! Please fill in as much detail as possible — most fields are required so we can reproduce the issue.
+
+        **Before submitting:** search [existing issues](https://github.com/davdlic/OpenLitter/issues?q=is%3Aissue) to avoid duplicates.
+
+  - type: input
+    id: firmware-version
+    attributes:
+      label: Firmware version
+      description: Visible at the bottom of the dashboard, in `/api/status`, or in the Serial log on boot.
+      placeholder: e.g. v0.1.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: model
+    attributes:
+      label: Litter Robot model
+      options:
+        - Litter Robot 1
+        - Litter Robot 2
+        - Litter Robot 3
+        - Other (describe below)
+    validations:
+      required: true
+
+  - type: input
+    id: esp32-board
+    attributes:
+      label: ESP32 board
+      placeholder: e.g. NodeMCU-32S, ESP32-DevKitC, ESP32-WROOM-32
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: optional-sensors
+    attributes:
+      label: Optional sensors enabled
+      options:
+        - label: HX711 + load cells (weight)
+        - label: HLK-LD2410C (mmWave presence)
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Clear description of the unexpected behaviour.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Power on the ESP32
+        2. Press the pedal
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: serial-log
+    attributes:
+      label: Serial log
+      description: Copy the relevant Serial output (115200 baud). Wrap in a fenced code block.
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Photos of the wiring, Web UI screenshots, MQTT broker logs, etc.
