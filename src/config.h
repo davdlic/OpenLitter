@@ -108,7 +108,12 @@
 // --- HISTORY ---
 #define HISTORY_MAX_ENTRIES 20      // Number of cleaning cycles to store
 
-// --- FILESYSTEM PATHS ---
-#define FS_WIFI_CONFIG      "/wifi.json"
-#define FS_SETTINGS         "/settings.json"
-#define FS_HISTORY          "/history.json"
+// --- PERSISTENCE (NVS / ESP32 Preferences) ---
+// User data (wifi creds, settings, history) lives in NVS so that
+// re-flashing the LittleFS partition (pio run -t uploadfs) doesn't
+// wipe anything the user has configured.
+#define NVS_NAMESPACE       "openlitter"
+#define NVS_KEY_WIFI_SSID   "wifi_ssid"
+#define NVS_KEY_WIFI_PASS   "wifi_pass"
+#define NVS_KEY_SETTINGS    "settings"
+#define NVS_KEY_HISTORY     "history"

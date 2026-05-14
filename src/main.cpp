@@ -18,6 +18,7 @@
 
 #include <Arduino.h>
 #include <LittleFS.h>
+#include <Preferences.h>
 #include <esp_task_wdt.h>
 #include <time.h>
 
@@ -45,6 +46,17 @@ void mountFilesystem() {
     }
 }
 
+// Ensure the OpenLitter NVS namespace exists so subsequent read-only opens
+// from Settings / WiFiManager / StateMachine don't log spurious NOT_FOUND
+// errors on first boot. The first time this runs, it creates an empty
+// namespace; on every boot after that, it's a no-op.
+void bootstrapPreferences() {
+    Preferences prefs;
+    if (prefs.begin(NVS_NAMESPACE, /*readOnly=*/false)) {
+        prefs.end();
+    }
+}
+
 void setupTime() {
     // Best-effort NTP sync. If we are offline this just keeps relative time.
     configTime(0, 0, "pool.ntp.org", "time.nist.gov");
@@ -66,6 +78,7 @@ void setup() {
     esp_task_wdt_add(nullptr);
 
     mountFilesystem();
+    bootstrapPreferences();
     settings.load();
 
     Motor::begin();

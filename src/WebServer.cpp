@@ -20,6 +20,7 @@
 #include <LittleFS.h>
 #include <WiFi.h>
 #include <Update.h>
+#include <Preferences.h>
 
 namespace WebServer {
 
@@ -180,9 +181,16 @@ void registerRoutes() {
     });
 
     server.on("/api/factory_reset", HTTP_POST, [](AsyncWebServerRequest *req) {
-        LittleFS.remove(FS_SETTINGS);
-        LittleFS.remove(FS_WIFI_CONFIG);
-        LittleFS.remove(FS_HISTORY);
+        // Wipe everything user-owned: NVS namespace + any legacy LittleFS
+        // config files. LittleFS PWA assets are untouched.
+        Preferences prefs;
+        if (prefs.begin(NVS_NAMESPACE, /*readOnly=*/false)) {
+            prefs.clear();
+            prefs.end();
+        }
+        LittleFS.remove("/wifi.json");
+        LittleFS.remove("/settings.json");
+        LittleFS.remove("/history.json");
         sendOk(req);
         delay(200);
         ESP.restart();

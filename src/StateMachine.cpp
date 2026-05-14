@@ -10,7 +10,7 @@
 #include "Sensors.h"
 #include "config.h"
 
-#include <LittleFS.h>
+#include <Preferences.h>
 #include <time.h>
 
 namespace StateMachine {
@@ -81,36 +81,75 @@ void recordCycle(bool completed, uint16_t durationSec, float weightKg) {
     lastCycleTs = (uint32_t)now;
 }
 
+// History is persisted to NVS as a single binary blob: a header with the
+// ring-buffer metadata followed by the raw CycleRecord array. Versioned so
+// we can grow the struct in future and detect/discard incompatible data.
+struct HistoryBlobHeader {
+    uint16_t magic;            // 'OL' marker
+    uint8_t  version;          // bump when CycleRecord changes
+    uint8_t  entrySize;        // sanity-check sizeof(CycleRecord)
+    uint16_t capacity;         // HISTORY_MAX_ENTRIES at write time
+    uint16_t count;            // valid records in ring
+    uint16_t head;             // next write index
+    uint16_t _reserved;        // align to 12 bytes
+    uint32_t totalCycleCount;
+    uint32_t lastCycleTs;
+};
+
+constexpr uint16_t HISTORY_MAGIC   = 0x4F4C;  // 'OL'
+constexpr uint8_t  HISTORY_VERSION = 1;
+
 void persistHistory() {
-    JsonDocument doc;
-    JsonArray arr = doc.to<JsonArray>();
-    serializeHistory(arr);
-    File f = LittleFS.open(FS_HISTORY, "w");
-    if (!f) return;
-    serializeJson(doc, f);
-    f.close();
+    HistoryBlobHeader hdr {
+        HISTORY_MAGIC,
+        HISTORY_VERSION,
+        (uint8_t)sizeof(CycleRecord),
+        (uint16_t)HISTORY_MAX_ENTRIES,
+        (uint16_t)historyCount,
+        (uint16_t)historyHead,
+        0,
+        totalCycleCount,
+        lastCycleTs,
+    };
+    uint8_t buf[sizeof(hdr) + sizeof(history)];
+    memcpy(buf, &hdr, sizeof(hdr));
+    memcpy(buf + sizeof(hdr), history, sizeof(history));
+
+    Preferences prefs;
+    if (!prefs.begin(NVS_NAMESPACE, /*readOnly=*/false)) return;
+    prefs.putBytes(NVS_KEY_HISTORY, buf, sizeof(buf));
+    prefs.end();
 }
 
 void loadHistory() {
-    if (!LittleFS.exists(FS_HISTORY)) return;
-    File f = LittleFS.open(FS_HISTORY, "r");
-    if (!f) return;
-    JsonDocument doc;
-    if (deserializeJson(doc, f) == DeserializationError::Ok) {
-        for (JsonObjectConst o : doc.as<JsonArrayConst>()) {
-            CycleRecord r;
-            r.timestamp = (time_t)(o["timestamp"] | 0);
-            r.durationSeconds = o["duration"] | 0;
-            r.catWeightKg = o["weight_kg"] | 0.0f;
-            r.completed = o["completed"] | true;
-            history[historyHead] = r;
-            historyHead = (historyHead + 1) % HISTORY_MAX_ENTRIES;
-            if (historyCount < HISTORY_MAX_ENTRIES) historyCount++;
-            lastCycleTs = (uint32_t)r.timestamp;
-            totalCycleCount++;
-        }
+    Preferences prefs;
+    if (!prefs.begin(NVS_NAMESPACE, /*readOnly=*/true)) return;
+    size_t expected = sizeof(HistoryBlobHeader) + sizeof(history);
+    size_t actual = prefs.getBytesLength(NVS_KEY_HISTORY);
+    if (actual != expected) {
+        prefs.end();
+        return;
     }
-    f.close();
+    uint8_t buf[expected];
+    prefs.getBytes(NVS_KEY_HISTORY, buf, expected);
+    prefs.end();
+
+    HistoryBlobHeader hdr;
+    memcpy(&hdr, buf, sizeof(hdr));
+    if (hdr.magic != HISTORY_MAGIC ||
+        hdr.version != HISTORY_VERSION ||
+        hdr.entrySize != sizeof(CycleRecord) ||
+        hdr.capacity != HISTORY_MAX_ENTRIES) {
+        Serial.println("[State] History blob incompatible, discarding");
+        return;
+    }
+    memcpy(history, buf + sizeof(hdr), sizeof(history));
+    historyCount     = hdr.count;
+    historyHead      = hdr.head;
+    totalCycleCount  = hdr.totalCycleCount;
+    lastCycleTs      = hdr.lastCycleTs;
+    Serial.printf("[State] History restored from NVS (%u entries)\n",
+                  (unsigned)historyCount);
 }
 
 bool isMotionState(State s) {
@@ -356,7 +395,11 @@ const CycleRecord &historyAt(size_t i) {
 void clearHistory() {
     historyCount = 0;
     historyHead = 0;
-    LittleFS.remove(FS_HISTORY);
+    Preferences prefs;
+    if (prefs.begin(NVS_NAMESPACE, /*readOnly=*/false)) {
+        prefs.remove(NVS_KEY_HISTORY);
+        prefs.end();
+    }
 }
 
 void serializeStatus(JsonObject obj) {

@@ -7,7 +7,7 @@
 #include "Settings.h"
 #include "config.h"
 
-#include <LittleFS.h>
+#include <Preferences.h>
 
 Settings settings;
 
@@ -83,25 +83,25 @@ void Settings::resetToDefaults() {
 
 bool Settings::load() {
     resetToDefaults();
-    if (!LittleFS.exists(FS_SETTINGS)) {
-        Serial.println("[Settings] No settings.json found, using defaults");
+    Preferences prefs;
+    if (!prefs.begin(NVS_NAMESPACE, /*readOnly=*/true)) {
+        Serial.println("[Settings] NVS open failed, using defaults");
         return false;
     }
-    File f = LittleFS.open(FS_SETTINGS, "r");
-    if (!f) {
-        Serial.println("[Settings] Failed to open settings.json");
+    String json = prefs.getString(NVS_KEY_SETTINGS, "");
+    prefs.end();
+    if (json.isEmpty()) {
+        Serial.println("[Settings] No NVS entry, using defaults");
         return false;
     }
     JsonDocument doc;
-    DeserializationError err = deserializeJson(doc, f);
-    f.close();
+    DeserializationError err = deserializeJson(doc, json);
     if (err) {
-        Serial.printf("[Settings] JSON parse error: %s\n", err.c_str());
+        Serial.printf("[Settings] NVS JSON parse error: %s\n", err.c_str());
         return false;
     }
-    JsonObjectConst obj = doc.as<JsonObjectConst>();
-    applyJson(obj);
-    Serial.println("[Settings] Loaded from /settings.json");
+    applyJson(doc.as<JsonObjectConst>());
+    Serial.println("[Settings] Loaded from NVS");
     return true;
 }
 
@@ -109,27 +109,21 @@ bool Settings::save() const {
     JsonDocument doc;
     JsonObject obj = doc.to<JsonObject>();
     toJson(obj, /*redactSecrets=*/false);
+    String json;
+    serializeJson(doc, json);
 
-    const char *tmpPath = "/settings.tmp";
-    File f = LittleFS.open(tmpPath, "w");
-    if (!f) {
-        Serial.println("[Settings] Failed to open settings.tmp for write");
+    Preferences prefs;
+    if (!prefs.begin(NVS_NAMESPACE, /*readOnly=*/false)) {
+        Serial.println("[Settings] NVS open RW failed");
         return false;
     }
-    size_t written = serializeJson(doc, f);
-    f.close();
+    size_t written = prefs.putString(NVS_KEY_SETTINGS, json);
+    prefs.end();
     if (written == 0) {
-        Serial.println("[Settings] serializeJson wrote 0 bytes");
+        Serial.println("[Settings] NVS putString returned 0 bytes");
         return false;
     }
-    if (LittleFS.exists(FS_SETTINGS)) {
-        LittleFS.remove(FS_SETTINGS);
-    }
-    if (!LittleFS.rename(tmpPath, FS_SETTINGS)) {
-        Serial.println("[Settings] Rename .tmp -> settings.json failed");
-        return false;
-    }
-    Serial.println("[Settings] Saved");
+    Serial.printf("[Settings] Saved to NVS (%u bytes)\n", (unsigned)written);
     return true;
 }
 
