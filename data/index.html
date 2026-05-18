@@ -149,6 +149,10 @@
         <label>Cat fallback timeout (min) <input data-cfg="cat_timeout_min" type="number" min="1" max="60" /></label>
         <label>Cycle watchdog (sec) <input data-cfg="cycle_timeout_sec" type="number" min="30" max="600" /></label>
         <label>Anti-pinch reverse (ms) <input data-cfg="anti_pinch_reverse_ms" type="number" min="0" max="10000" /></label>
+        <h4>Overshoot</h4>
+        <p class="muted small">Extra seconds the motor keeps running past the DUMP magnet. Higher values dump more completely but take longer. Defaults are reasonable starting points — tune by watching the globe stop position.</p>
+        <label>Cycle overshoot (sec) <input data-cfg="cycle_overshoot_sec" type="number" min="0" max="60" /></label>
+        <label>Empty overshoot (sec) <input data-cfg="empty_overshoot_sec" type="number" min="0" max="60" /></label>
       </div>
 
       <!-- Hardware -->

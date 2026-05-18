@@ -16,8 +16,10 @@ enum class State : uint8_t {
     CAT_INSIDE,
     WAITING,
     CYCLING_CCW,
+    CYCLING_OVERSHOOT_DUMP,  // motor stays CCW past DUMP for cycle_overshoot_sec
     CYCLING_CW,
     EMPTYING,
+    EMPTYING_OVERSHOOT,      // motor stays CCW past DUMP for empty_overshoot_sec
     RESETTING,
     PAUSED,
     ERROR,
