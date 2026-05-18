@@ -98,8 +98,8 @@ The pedal microswitch only fires when the cat steps onto the entry. A mmWave sen
 |---------|-----------|
 | VCC     | 3V3 (or 5 V if your board accepts it — check the silkscreen) |
 | GND     | GND       |
-| TX      | GPIO 16 (ESP32 RX) |
-| RX      | GPIO 17 (ESP32 TX) |
+| TX      | GPIO 4 (ESP32 RX) |
+| RX      | GPIO 5 (ESP32 TX) |
 
 ### Mounting
 

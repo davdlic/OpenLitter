@@ -57,8 +57,8 @@ OpenLitter does **not** support the Litter Robot 4 (different mechanical and ele
 | ESP32 dev board      | Any ESP32 (NodeMCU-32S, DevKitC, WROOM-32...), ~5 €                     |
 | L298N H-Bridge       | Drives the original 12 V DC globe motor, ~3 €                           |
 | 12 V power supply    | Sized for the original motor (≥ 2 A recommended)                        |
-| 2× Hall sensors      | Bipolar latching type, e.g. A3144, ~2 € for a pack                      |
-| 1× micro switch      | Replaces the pedal switch (NC or NO, both supported)                    |
+| 2× position sensors  | Detect the HOME and DUMP magnets on the globe. The firmware only reads a digital line, so either reed switches (cheap, 10 kΩ pull-up) or bipolar Hall ICs (e.g. A3144) work — settings are labelled "Hall HOME / DUMP" for historical reasons |
+| 1× micro switch      | Pedal switch (e.g. Honeywell/Omron SS-5GL). NC or NO, both supported    |
 
 ### Optional
 
@@ -73,20 +73,20 @@ Indicative total cost without optional sensors: **~15 €**.
 
 ## Wiring
 
-See [docs/wiring_diagram.md](docs/wiring_diagram.md) for the full pinout table and connection diagram. Defaults map to:
+See [docs/wiring_diagram.md](docs/wiring_diagram.md) for the full pinout table, the reference schematic ([interactive Cirkit Designer view](https://app.cirkitdesigner.com/project/0bc0578e-28ad-4119-8f88-b2d95e84ed99?view=interactive_preview)) and the connection diagram. Defaults:
 
 | Function           | ESP32 pin | Notes                                |
 |--------------------|-----------|--------------------------------------|
-| Motor IN1          | 25        | L298N IN1                            |
-| Motor IN2          | 26        | L298N IN2                            |
-| Motor EN (PWM)     | 27        | L298N ENA, set to `-1` to disable    |
-| Hall HOME          | 32        | Home position sensor                 |
-| Hall DUMP          | 33        | Inverted/dump position sensor        |
-| Cat micro switch   | 18        | Pedal switch                         |
+| Motor IN1          | 19        | L298N IN1                            |
+| Motor IN2          | 21        | L298N IN2                            |
+| Motor EN (PWM)     | 18        | L298N ENA, set to `-1` to disable    |
+| Hall HOME          | 22        | Home position sensor                 |
+| Hall DUMP          | 23        | Inverted/dump position sensor        |
+| Cat micro switch   | 16        | Pedal switch + cable safety in parallel |
 | HX711 DOUT         | 34        | Optional, if weight sensor enabled   |
 | HX711 SCK          | 35        | Optional                             |
-| LD2410C RX         | 16        | Optional                             |
-| LD2410C TX         | 17        | Optional                             |
+| LD2410C RX         | 4         | Optional                             |
+| LD2410C TX         | 5         | Optional                             |
 
 All pins are configurable from the Web UI — these are only defaults.
 
@@ -140,13 +140,13 @@ Open `http://192.168.4.1` from your phone, scan and pick your home WiFi, save. T
 The full list of compile-time defaults lives in [src/config.h](src/config.h). At runtime, every relevant setting is editable from the Web UI under **Settings**:
 
 - **Network** — WiFi credentials, hostname, static IP, recovery AP password.
-- **Timing** — wait-after-cat, cat fallback timeout, cycle watchdog, anti-pinch reverse time.
+- **Timing** — wait-after-cat, cat fallback timeout, cycle watchdog, anti-pinch reverse time, cycle/empty overshoot past the DUMP magnet.
 - **Hardware** — motor pins, motor speed, Hall pins, switch pin and type (NC/NO), debounce.
 - **Sensors** — weight sensor (capacity, threshold, tare), LD2410C presence sensor.
 - **MQTT** — broker, port, credentials, topic base, HA auto-discovery toggle.
 - **System** — OTA toggle, history size, factory reset, config import/export, restart.
 
-Settings are persisted in LittleFS (`/wifi.json` and `/settings.json`).
+Settings, WiFi credentials and cycle history are persisted in the ESP32 NVS partition (Arduino `Preferences`, namespace `openlitter`). Re-running `pio run -t uploadfs` to update the Web UI no longer wipes user data.
 
 ---
 
