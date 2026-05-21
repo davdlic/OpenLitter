@@ -10,6 +10,7 @@
 
 #include <WiFi.h>
 #include <ESPmDNS.h>
+#include <DNSServer.h>
 #include <LittleFS.h>
 
 namespace WiFiManager {
@@ -26,6 +27,14 @@ Mode currentMode = Mode::OFFLINE;
 uint32_t lastReconnectAttemptMs = 0;
 uint8_t  failedAttempts = 0;
 bool     mdnsStarted = false;
+
+// Captive portal: a wildcard DNS server on the AP that resolves every
+// hostname to the AP's IP. Combined with the WebServer's catch-all that
+// serves index.html for unknown paths, this triggers the OS captive
+// portal popup on iOS / Android / Windows when a phone joins the AP.
+DNSServer dnsServer;
+bool      dnsStarted = false;
+constexpr uint16_t DNS_PORT = 53;
 
 bool loadCreds() {
     if (!LittleFS.exists(FS_WIFI_CONFIG)) return false;
@@ -90,11 +99,29 @@ bool tryConnectStation(uint32_t timeoutMs) {
     return false;
 }
 
+void startCaptiveDns() {
+    if (dnsStarted) return;
+    dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
+    if (dnsServer.start(DNS_PORT, "*", AP_IP)) {
+        dnsStarted = true;
+        Serial.println("[WiFi] Captive DNS started on port 53");
+    } else {
+        Serial.println("[WiFi] Captive DNS failed to start");
+    }
+}
+
+void stopCaptiveDns() {
+    if (!dnsStarted) return;
+    dnsServer.stop();
+    dnsStarted = false;
+}
+
 void startRecoveryAp() {
     Serial.println("[WiFi] Starting recovery AP");
     WiFi.softAPConfig(AP_IP, AP_IP, IPAddress(255, 255, 255, 0));
     WiFi.softAP(AP_SSID, settings.apPassword);
     Serial.printf("[WiFi] AP '%s' @ %s\n", AP_SSID, WiFi.softAPIP().toString().c_str());
+    startCaptiveDns();
 }
 
 void startMdnsIfNeeded() {
@@ -123,11 +150,16 @@ void begin() {
     WiFi.mode(haveCreds ? WIFI_AP_STA : WIFI_AP);
     applyHostname();
     startRecoveryAp();
+    startMdnsIfNeeded();   // mDNS works on AP too — openlitter.local
+                           // resolves before the user has any home WiFi
+                           // configured.
     currentMode = haveCreds ? Mode::AP_STA : Mode::AP;
     failedAttempts = haveCreds ? 1 : 0;
 }
 
 void loop() {
+    if (dnsStarted) dnsServer.processNextRequest();
+
     if (WiFi.status() == WL_CONNECTED) {
         if (currentMode == Mode::OFFLINE || currentMode == Mode::AP) {
             currentMode = Mode::STATION;
@@ -137,6 +169,7 @@ void loop() {
             if (WiFi.getMode() == WIFI_AP_STA) {
                 WiFi.softAPdisconnect(true);
                 WiFi.mode(WIFI_STA);
+                stopCaptiveDns();
                 currentMode = Mode::STATION;
             }
         }
@@ -144,7 +177,10 @@ void loop() {
     }
 
     // Disconnected branch
-    if (currentMode == Mode::AP) return;  // No creds, just sit in AP.
+    if (currentMode == Mode::AP) {
+        // No creds, just sit in AP — keep serving DNS for the captive portal.
+        return;
+    }
 
     uint32_t now = millis();
     if (now - lastReconnectAttemptMs < WIFI_RECONNECT_INTERVAL_SEC * 1000UL) return;
@@ -175,6 +211,7 @@ bool provision(const char *ssid, const char *password) {
         Serial.println("[WiFi] Failed to write wifi.json");
         return false;
     }
+    stopCaptiveDns();
     WiFi.disconnect(true, true);
     delay(200);
     WiFi.mode(WIFI_STA);
@@ -196,6 +233,7 @@ bool provision(const char *ssid, const char *password) {
     Serial.println("[WiFi] Provisioning failed, AP stays up");
     WiFi.mode(WIFI_AP);
     startRecoveryAp();
+    startMdnsIfNeeded();
     currentMode = Mode::AP;
     return false;
 }
@@ -204,6 +242,7 @@ void launchRecoveryAp() {
     if (currentMode == Mode::AP || currentMode == Mode::AP_STA) return;
     WiFi.mode(WIFI_AP_STA);
     startRecoveryAp();
+    startMdnsIfNeeded();
     currentMode = isConnected() ? Mode::AP_STA : Mode::AP;
 }
 
