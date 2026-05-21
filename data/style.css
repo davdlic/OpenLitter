@@ -468,6 +468,46 @@ main {
   }
 }
 
+/* ---------- Sensor pills ---------- */
+.sensor-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.sensor-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.8rem;
+  background: rgba(20, 22, 38, 0.6);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.sensor-pill .sn-dot {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  background: #3a3d55;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+.sensor-pill.active {
+  color: #d6f7e2;
+  border-color: rgba(78, 234, 126, 0.5);
+  background: rgba(78, 234, 126, 0.12);
+}
+
+.sensor-pill.active .sn-dot {
+  background: #4eea7e;
+  box-shadow: 0 0 8px rgba(78, 234, 126, 0.8);
+}
+
 /* ---------- Logs view ---------- */
 .logs-toolbar {
   display: flex;

@@ -14,7 +14,12 @@
   let wsRetry = 1000;
   let lastStatus = null;
   let dirty = false;
-  const motionStates = new Set(['CYCLING_CCW', 'CYCLING_CW', 'EMPTYING', 'RESETTING']);
+  const motionStates = new Set([
+    'CYCLING_CCW', 'CYCLING_DUMP_PAUSE', 'CYCLING_CW',
+    'CYCLING_LEVEL_OVERSHOOT', 'CYCLING_LEVEL_RETURN',
+    'CYCLING_LEVEL_BACK_OVERSHOOT', 'CYCLING_LEVEL_BACK_RETURN',
+    'EMPTYING', 'EMPTYING_DUMP_PAUSE', 'RESETTING',
+  ]);
 
   // ---------- Toast ----------
   function toast(msg, isError = false) {
@@ -186,10 +191,10 @@
     lastStatus = data;
     const state = data.state || 'UNKNOWN';
     const badge = $('#state-badge');
-    badge.textContent = state;
+    badge.textContent = stateLabel(state, data);
     badge.dataset.state = state;
 
-    $('#state-detail').textContent = stateDescription(state);
+    $('#state-detail').textContent = stateDescription(state, data);
 
     const errorBanner = $('#error-banner');
     if (data.error) {
@@ -208,6 +213,10 @@
       ? `${(+data.weight_kg).toFixed(2)} kg` : 'off';
     $('#m-cycles').textContent = data.cycle_count ?? 0;
     $('#m-last').textContent = fmtTime(data.last_cycle);
+
+    $('#sn-home').classList.toggle('active', !!data.home_position);
+    $('#sn-dump').classList.toggle('active', !!data.dump_position);
+    $('#sn-cat').classList.toggle('active',  !!data.cat_present);
 
     $('#btn-tare').hidden = !data.weight_enabled;
 
@@ -241,18 +250,66 @@
       ? `${(+data.weight_kg).toFixed(2)} kg` : 'off';
   }
 
-  function stateDescription(s) {
+  function stateLabel(s, data) {
+    // During a Reset the firmware reuses the cycle path internally
+    // (CCW -> DUMP -> overshoot -> CW), but the user-facing label should
+    // reflect intent: it's a reset, not a cleaning cycle.
+    if (data && data.reset_in_progress) {
+      if (s === 'CYCLING_CCW' || s === 'CYCLING_DUMP_PAUSE' ||
+          s === 'CYCLING_CW'  || s === 'CYCLING_LEVEL_OVERSHOOT' ||
+          s === 'CYCLING_LEVEL_RETURN' || s === 'CYCLING_LEVEL_BACK_OVERSHOOT' ||
+          s === 'CYCLING_LEVEL_BACK_RETURN' || s === 'RESETTING') return 'RESETTING';
+    }
     switch (s) {
-      case 'IDLE':        return 'Waiting for cat';
-      case 'CAT_INSIDE':  return 'Cat detected inside';
-      case 'WAITING':     return 'Counting down before cycle';
-      case 'CYCLING_CCW': return 'Cleaning (forward)';
-      case 'CYCLING_CW':  return 'Returning to home';
-      case 'EMPTYING':    return 'Emptying...';
-      case 'RESETTING':   return 'Returning to home';
-      case 'PAUSED':      return 'Paused for safety';
-      case 'ERROR':       return 'Manual reset required';
-      default:            return '';
+      case 'IDLE':                         return 'READY';
+      case 'CAT_INSIDE':                   return 'CAT INSIDE';
+      case 'WAITING':                      return 'WAITING';
+      case 'CYCLING_CCW':                  return 'CLEANING';
+      case 'CYCLING_DUMP_PAUSE':           return 'DUMPING';
+      case 'CYCLING_CW':                   return 'RETURNING';
+      case 'CYCLING_LEVEL_OVERSHOOT':      return 'LEVELING';
+      case 'CYCLING_LEVEL_RETURN':         return 'LEVELING';
+      case 'CYCLING_LEVEL_BACK_OVERSHOOT': return 'LEVELING';
+      case 'CYCLING_LEVEL_BACK_RETURN':    return 'LEVELING';
+      case 'EMPTYING':                     return 'EMPTYING';
+      case 'EMPTYING_DUMP_PAUSE':          return 'DUMPING';
+      case 'RESETTING':                    return 'RETURNING';
+      case 'PAUSED':                       return 'PAUSED';
+      case 'ERROR':                        return 'ERROR';
+      default:                             return s;
+    }
+  }
+
+  function stateDescription(s, data) {
+    if (data && data.reset_in_progress) {
+      switch (s) {
+        case 'CYCLING_CCW':                  return 'Resetting — rotating toward dump position';
+        case 'CYCLING_DUMP_PAUSE':           return 'Resetting — waste falling';
+        case 'CYCLING_CW':                   return 'Resetting — returning to home';
+        case 'CYCLING_LEVEL_OVERSHOOT':      return 'Resetting — levelling litter (past home)';
+        case 'CYCLING_LEVEL_RETURN':         return 'Resetting — coming back to home';
+        case 'CYCLING_LEVEL_BACK_OVERSHOOT': return 'Resetting — back shake';
+        case 'CYCLING_LEVEL_BACK_RETURN':    return 'Resetting — back to home';
+        case 'RESETTING':                    return 'Resetting — returning to home';
+      }
+    }
+    switch (s) {
+      case 'IDLE':                         return 'Ready — waiting for a cat';
+      case 'CAT_INSIDE':                   return 'Cat is inside the globe';
+      case 'WAITING':                      return 'Cat left, counting down before cleaning';
+      case 'CYCLING_CCW':                  return 'Rotating globe toward dump position';
+      case 'CYCLING_DUMP_PAUSE':           return 'Stopped at dump — waste falling into tray';
+      case 'CYCLING_CW':                   return 'Returning globe to rest position';
+      case 'CYCLING_LEVEL_OVERSHOOT':      return 'Levelling litter — past home (CW)';
+      case 'CYCLING_LEVEL_RETURN':         return 'Levelling litter — coming back to home';
+      case 'CYCLING_LEVEL_BACK_OVERSHOOT': return 'Back shake — past home (CCW)';
+      case 'CYCLING_LEVEL_BACK_RETURN':    return 'Back shake — coming back to home';
+      case 'EMPTYING':                     return 'Rotating to dump position';
+      case 'EMPTYING_DUMP_PAUSE':          return 'Stopped at dump — pull tray now';
+      case 'RESETTING':                    return 'Returning globe to rest position';
+      case 'PAUSED':                       return 'Paused — will auto-resume after grace period';
+      case 'ERROR':                        return 'Error — check Logs, then press Reset';
+      default:                             return '';
     }
   }
 

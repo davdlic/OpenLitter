@@ -51,8 +51,9 @@ void Settings::resetToDefaults() {
     catTimeoutMin      = CAT_TIMEOUT_MIN;
     cycleTimeoutSec    = CYCLE_TIMEOUT_SEC;
     antiPinchReverseMs = ANTI_PINCH_REVERSE_MS;
-    cycleOvershootSec  = CYCLE_OVERSHOOT_SEC;
-    emptyOvershootSec  = EMPTY_OVERSHOOT_SEC;
+    cycleDumpPauseSec       = CYCLE_DUMP_PAUSE_SEC;
+    emptyDumpPauseSec       = EMPTY_DUMP_PAUSE_SEC;
+    cycleLevelOvershootSec  = CYCLE_LEVEL_OVERSHOOT_SEC;
 
     weightEnabled     = WEIGHT_SENSOR_ENABLED;
     weightCapacityKg  = WEIGHT_SENSOR_CAPACITY;
@@ -168,8 +169,9 @@ bool Settings::applyJson(const JsonObjectConst &obj) {
     setI("cat_timeout_min",        catTimeoutMin);
     setI("cycle_timeout_sec",      cycleTimeoutSec);
     setI("anti_pinch_reverse_ms",  antiPinchReverseMs);
-    setI("cycle_overshoot_sec",    cycleOvershootSec);
-    setI("empty_overshoot_sec",    emptyOvershootSec);
+    setI("cycle_dump_pause_sec",      cycleDumpPauseSec);
+    setI("empty_dump_pause_sec",      emptyDumpPauseSec);
+    setI("cycle_level_overshoot_sec", cycleLevelOvershootSec);
 
     setB("weight_enabled",      weightEnabled);
     setI("weight_capacity_kg",  weightCapacityKg);
@@ -223,8 +225,9 @@ void Settings::toJson(JsonObject obj, bool redactSecrets) const {
     obj["cat_timeout_min"]       = catTimeoutMin;
     obj["cycle_timeout_sec"]     = cycleTimeoutSec;
     obj["anti_pinch_reverse_ms"] = antiPinchReverseMs;
-    obj["cycle_overshoot_sec"]   = cycleOvershootSec;
-    obj["empty_overshoot_sec"]   = emptyOvershootSec;
+    obj["cycle_dump_pause_sec"]      = cycleDumpPauseSec;
+    obj["empty_dump_pause_sec"]      = emptyDumpPauseSec;
+    obj["cycle_level_overshoot_sec"] = cycleLevelOvershootSec;
 
     obj["weight_enabled"]      = weightEnabled;
     obj["weight_capacity_kg"]  = weightCapacityKg;

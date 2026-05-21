@@ -39,8 +39,11 @@ uint32_t catLeftMs = 0;          // when WAITING started
 uint32_t catEnteredMs = 0;       // when CAT_INSIDE started
 uint32_t pauseStartedMs = 0;
 uint32_t lastMotionProgressMs = 0;  // for anti-pinch
-uint32_t overshootStartMs = 0;      // when an OVERSHOOT_* state began
+uint32_t overshootStartMs = 0;      // when the current timed phase started (DUMP pause or LEVEL overshoot)
+uint32_t cycleBeginMs = 0;          // when the *original* cycle/reset began (for accurate recordCycle duration); cycleStartMs is reset per phase for the watchdog
+bool     levelReturnArmed = false;  // CYCLING_LEVEL_RETURN waits for HOME sensor to deactivate before re-arming the stop-at-HOME check
 bool     manualPause = false;       // true if PAUSED was entered via requestPause(), false if via anti-pinch
+bool     resetInProgress = false;   // true while requestReset() drives the CCW/OVERSHOOT/CW path; UI shows RESETTING and history skips the cycle record
 
 uint32_t totalCycleCount = 0;
 uint32_t lastCycleTs = 0;
@@ -157,8 +160,12 @@ void loadHistory() {
 bool isMotionState(State s) {
     return s == State::CYCLING_CCW || s == State::CYCLING_CW
         || s == State::EMPTYING    || s == State::RESETTING
-        || s == State::CYCLING_OVERSHOOT_DUMP
-        || s == State::EMPTYING_OVERSHOOT;
+        || s == State::CYCLING_DUMP_PAUSE
+        || s == State::EMPTYING_DUMP_PAUSE
+        || s == State::CYCLING_LEVEL_OVERSHOOT
+        || s == State::CYCLING_LEVEL_RETURN
+        || s == State::CYCLING_LEVEL_BACK_OVERSHOOT
+        || s == State::CYCLING_LEVEL_BACK_RETURN;
 }
 
 void runMotionWatchdog() {
@@ -226,33 +233,118 @@ void handleCyclingCcw() {
     runMotionWatchdog();
     if (currentState != State::CYCLING_CCW) return;  // watchdog tripped
     if (Sensors::isDumpPosition()) {
-        // Hit DUMP. Keep motor running CCW for the configured overshoot
-        // so the globe goes a bit past 180 degrees — improves the dump
-        // and leaves the litter level when the cycle finishes.
+        // Hit DUMP. STOP the motor and let waste fall through the dump door
+        // for the configured pause. Rotating any further CCW would close the
+        // door again on real Litter Robot mechanics.
+        Motor::stop();
         overshootStartMs = millis();
-        transition(State::CYCLING_OVERSHOOT_DUMP);
+        cycleStartMs = millis();
+        lastMotionProgressMs = cycleStartMs;
+        transition(State::CYCLING_DUMP_PAUSE);
     }
 }
 
-void handleCyclingOvershootDump() {
+void handleCyclingDumpPause() {
     runMotionWatchdog();
-    if (currentState != State::CYCLING_OVERSHOOT_DUMP) return;
-    if (millis() - overshootStartMs >= (uint32_t)settings.cycleOvershootSec * 1000UL) {
+    if (currentState != State::CYCLING_DUMP_PAUSE) return;
+    if (millis() - overshootStartMs >= (uint32_t)settings.cycleDumpPauseSec * 1000UL) {
+        // Pause done — start the CW return. Reset cycleStartMs so the CW
+        // phase has its own full watchdog window (motors on real LRs can
+        // be slow enough that a whole-cycle watchdog wouldn't fit).
         Motor::cw(settings.motorSpeed);
-        lastMotionProgressMs = millis();
+        cycleStartMs = millis();
+        lastMotionProgressMs = cycleStartMs;
         transition(State::CYCLING_CW);
     }
+}
+
+void finishCycle(bool atLevelReturn) {
+    Motor::stop();
+    // Only record this as a cleaning cycle in history if it was a real
+    // cycle; a Reset that happened to route through the cycle path is
+    // not a cleaning event.
+    if (!resetInProgress) {
+        uint16_t dur = (uint16_t)((millis() - cycleBeginMs) / 1000UL);
+        recordCycle(true, dur, Sensors::getCurrentWeight());
+        persistHistory();
+    }
+    resetInProgress = false;
+    (void)atLevelReturn;
+    transition(State::IDLE);
 }
 
 void handleCyclingCw() {
     runMotionWatchdog();
     if (currentState != State::CYCLING_CW) return;
     if (Sensors::isHomePosition()) {
-        Motor::stop();
-        uint16_t dur = (uint16_t)((millis() - cycleStartMs) / 1000UL);
-        recordCycle(true, dur, Sensors::getCurrentWeight());
-        persistHistory();
-        transition(State::IDLE);
+        if (settings.cycleLevelOvershootSec == 0) {
+            // Levelling phase disabled — finish here.
+            finishCycle(false);
+            return;
+        }
+        // Keep motor running CW past HOME for the configured overshoot
+        // (sand "shake"); then CYCLING_LEVEL_RETURN reverses CCW back
+        // to HOME and stops there.
+        overshootStartMs = millis();
+        cycleStartMs = millis();
+        lastMotionProgressMs = cycleStartMs;
+        transition(State::CYCLING_LEVEL_OVERSHOOT);
+    }
+}
+
+void handleCyclingLevelOvershoot() {
+    runMotionWatchdog();
+    if (currentState != State::CYCLING_LEVEL_OVERSHOOT) return;
+    if (millis() - overshootStartMs >= (uint32_t)settings.cycleLevelOvershootSec * 1000UL) {
+        Motor::ccw(settings.motorSpeed);
+        cycleStartMs = millis();
+        lastMotionProgressMs = cycleStartMs;
+        // Globe is still sitting on the HOME magnet; LEVEL_RETURN waits
+        // for the sensor to deactivate first before re-arming the
+        // stop-at-HOME check, otherwise it would stop immediately.
+        levelReturnArmed = false;
+        transition(State::CYCLING_LEVEL_RETURN);
+    }
+}
+
+void handleCyclingLevelReturn() {
+    runMotionWatchdog();
+    if (currentState != State::CYCLING_LEVEL_RETURN) return;
+    if (!levelReturnArmed) {
+        if (!Sensors::isHomePosition()) levelReturnArmed = true;
+        return;
+    }
+    if (Sensors::isHomePosition()) {
+        // Second half of the sand shake: keep going CCW past HOME for the
+        // hardcoded back overshoot, then reverse CW back to HOME and stop.
+        overshootStartMs = millis();
+        cycleStartMs = millis();
+        lastMotionProgressMs = cycleStartMs;
+        transition(State::CYCLING_LEVEL_BACK_OVERSHOOT);
+    }
+}
+
+void handleCyclingLevelBackOvershoot() {
+    runMotionWatchdog();
+    if (currentState != State::CYCLING_LEVEL_BACK_OVERSHOOT) return;
+    if (millis() - overshootStartMs >= (uint32_t)CYCLE_LEVEL_BACK_OVERSHOOT_SEC * 1000UL) {
+        Motor::cw(settings.motorSpeed);
+        cycleStartMs = millis();
+        lastMotionProgressMs = cycleStartMs;
+        levelReturnArmed = false;
+        transition(State::CYCLING_LEVEL_BACK_RETURN);
+    }
+}
+
+void handleCyclingLevelBackReturn() {
+    runMotionWatchdog();
+    if (currentState != State::CYCLING_LEVEL_BACK_RETURN) return;
+    if (!levelReturnArmed) {
+        if (!Sensors::isHomePosition()) levelReturnArmed = true;
+        return;
+    }
+    if (Sensors::isHomePosition()) {
+        finishCycle(true);
     }
 }
 
@@ -260,18 +352,25 @@ void handleEmptying() {
     runMotionWatchdog();
     if (currentState != State::EMPTYING) return;
     if (Sensors::isDumpPosition()) {
-        // Same idea as cycle overshoot, but tuned for emptying (typically
-        // a bit shorter — we only need full dump, not nice levelling).
+        // STOP at DUMP, same as the cycle path. The motor stays off for
+        // emptyDumpPauseSec so the user can remove the tray (or so the
+        // last bit of waste settles), before we start the CW return.
+        Motor::stop();
         overshootStartMs = millis();
-        transition(State::EMPTYING_OVERSHOOT);
+        cycleStartMs = millis();
+        lastMotionProgressMs = cycleStartMs;
+        transition(State::EMPTYING_DUMP_PAUSE);
     }
 }
 
-void handleEmptyingOvershoot() {
+void handleEmptyingDumpPause() {
     runMotionWatchdog();
-    if (currentState != State::EMPTYING_OVERSHOOT) return;
-    if (millis() - overshootStartMs >= (uint32_t)settings.emptyOvershootSec * 1000UL) {
-        Motor::stop();
+    if (currentState != State::EMPTYING_DUMP_PAUSE) return;
+    if (millis() - overshootStartMs >= (uint32_t)settings.emptyDumpPauseSec * 1000UL) {
+        // Pause done — head back home. Reset cycleStartMs so the return
+        // phase gets its own watchdog window.
+        cycleStartMs = millis();
+        lastMotionProgressMs = cycleStartMs;
         transition(State::RESETTING);
     }
 }
@@ -281,6 +380,7 @@ void handleResetting() {
     if (currentState != State::RESETTING) return;
     if (Sensors::isHomePosition()) {
         Motor::stop();
+        resetInProgress = false;
         transition(State::IDLE);
     } else if (millis() - cycleStartMs > 1000) {
         // Need to start moving back to home.
@@ -298,12 +398,16 @@ void handlePaused() {
                   manualPause ? "manual" : "anti-pinch");
         cycleStartMs = now;
         switch (stateBeforePause) {
-            case State::CYCLING_CCW:            Motor::ccw(settings.motorSpeed); break;
-            case State::CYCLING_OVERSHOOT_DUMP: Motor::ccw(settings.motorSpeed); overshootStartMs = now; break;
-            case State::CYCLING_CW:             Motor::cw(settings.motorSpeed);  break;
-            case State::EMPTYING:               Motor::ccw(settings.motorSpeed); break;
-            case State::EMPTYING_OVERSHOOT:     Motor::ccw(settings.motorSpeed); overshootStartMs = now; break;
-            case State::RESETTING:              Motor::cw(settings.motorSpeed);  break;
+            case State::CYCLING_CCW:             Motor::ccw(settings.motorSpeed); break;
+            case State::CYCLING_DUMP_PAUSE:  overshootStartMs = now; break;  // motor stays stopped during pause-at-DUMP
+            case State::CYCLING_CW:              Motor::cw(settings.motorSpeed);  break;
+            case State::CYCLING_LEVEL_OVERSHOOT:      Motor::cw(settings.motorSpeed); overshootStartMs = now; break;
+            case State::CYCLING_LEVEL_RETURN:         Motor::ccw(settings.motorSpeed); levelReturnArmed = false; break;
+            case State::CYCLING_LEVEL_BACK_OVERSHOOT: Motor::ccw(settings.motorSpeed); overshootStartMs = now; break;
+            case State::CYCLING_LEVEL_BACK_RETURN:    Motor::cw(settings.motorSpeed);  levelReturnArmed = false; break;
+            case State::EMPTYING:                     Motor::ccw(settings.motorSpeed); break;
+            case State::EMPTYING_DUMP_PAUSE:          overshootStartMs = now; break;  // motor stays stopped during pause-at-DUMP
+            case State::RESETTING:                    Motor::cw(settings.motorSpeed);  break;
             default: break;
         }
         transition(stateBeforePause);
@@ -339,10 +443,14 @@ void loop() {
         case State::CAT_INSIDE:             handleCatInside();             break;
         case State::WAITING:                handleWaiting();               break;
         case State::CYCLING_CCW:            handleCyclingCcw();            break;
-        case State::CYCLING_OVERSHOOT_DUMP: handleCyclingOvershootDump();  break;
+        case State::CYCLING_DUMP_PAUSE: handleCyclingDumpPause();  break;
         case State::CYCLING_CW:             handleCyclingCw();             break;
+        case State::CYCLING_LEVEL_OVERSHOOT: handleCyclingLevelOvershoot();     break;
+        case State::CYCLING_LEVEL_RETURN:    handleCyclingLevelReturn();        break;
+        case State::CYCLING_LEVEL_BACK_OVERSHOOT: handleCyclingLevelBackOvershoot(); break;
+        case State::CYCLING_LEVEL_BACK_RETURN:    handleCyclingLevelBackReturn();    break;
         case State::EMPTYING:               handleEmptying();              break;
-        case State::EMPTYING_OVERSHOOT:     handleEmptyingOvershoot();     break;
+        case State::EMPTYING_DUMP_PAUSE:     handleEmptyingDumpPause();     break;
         case State::RESETTING:              handleResetting();             break;
         case State::PAUSED:                 handlePaused();                break;
         case State::ERROR:                  /* wait for manual reset */    break;
@@ -357,10 +465,14 @@ const char *stateName(State s) {
         case State::CAT_INSIDE:             return "CAT_INSIDE";
         case State::WAITING:                return "WAITING";
         case State::CYCLING_CCW:            return "CYCLING_CCW";
-        case State::CYCLING_OVERSHOOT_DUMP: return "CYCLING_OVERSHOOT_DUMP";
+        case State::CYCLING_DUMP_PAUSE: return "CYCLING_DUMP_PAUSE";
         case State::CYCLING_CW:             return "CYCLING_CW";
+        case State::CYCLING_LEVEL_OVERSHOOT:      return "CYCLING_LEVEL_OVERSHOOT";
+        case State::CYCLING_LEVEL_RETURN:         return "CYCLING_LEVEL_RETURN";
+        case State::CYCLING_LEVEL_BACK_OVERSHOOT: return "CYCLING_LEVEL_BACK_OVERSHOOT";
+        case State::CYCLING_LEVEL_BACK_RETURN:    return "CYCLING_LEVEL_BACK_RETURN";
         case State::EMPTYING:               return "EMPTYING";
-        case State::EMPTYING_OVERSHOOT:     return "EMPTYING_OVERSHOOT";
+        case State::EMPTYING_DUMP_PAUSE:     return "EMPTYING_DUMP_PAUSE";
         case State::RESETTING:              return "RESETTING";
         case State::PAUSED:                 return "PAUSED";
         case State::ERROR:                  return "ERROR";
@@ -372,8 +484,10 @@ const char *errorMessage() { return currentError; }
 
 bool requestCycle() {
     if (currentState != State::IDLE) return false;
+    resetInProgress = false;
     Motor::ccw(settings.motorSpeed);
-    cycleStartMs = millis();
+    cycleBeginMs = millis();
+    cycleStartMs = cycleBeginMs;
     lastMotionProgressMs = cycleStartMs;
     transition(State::CYCLING_CCW);
     return true;
@@ -381,8 +495,10 @@ bool requestCycle() {
 
 bool requestEmpty() {
     if (currentState != State::IDLE) return false;
+    resetInProgress = false;
     Motor::ccw(settings.motorSpeed);
-    cycleStartMs = millis();
+    cycleBeginMs = millis();
+    cycleStartMs = cycleBeginMs;
     lastMotionProgressMs = cycleStartMs;
     transition(State::EMPTYING);
     return true;
@@ -392,14 +508,39 @@ bool requestReset() {
     Motor::stop();
     currentError = "";
     if (currentState == State::ERROR || currentState == State::PAUSED ||
-        currentState == State::EMPTYING || currentState == State::RESETTING) {
+        currentState == State::EMPTYING || currentState == State::EMPTYING_DUMP_PAUSE ||
+        currentState == State::CYCLING_DUMP_PAUSE ||
+        currentState == State::CYCLING_LEVEL_OVERSHOOT ||
+        currentState == State::CYCLING_LEVEL_RETURN ||
+        currentState == State::CYCLING_LEVEL_BACK_OVERSHOOT ||
+        currentState == State::CYCLING_LEVEL_BACK_RETURN ||
+        currentState == State::RESETTING) {
+        uint32_t now = millis();
         if (Sensors::isHomePosition()) {
+            // Already home — nothing to do.
+            resetInProgress = false;
             transition(State::IDLE);
+        } else if (Sensors::isDumpPosition()) {
+            // Already at DUMP — pause briefly (motor stays stopped), then
+            // return CW to HOME.
+            resetInProgress = true;
+            cycleBeginMs = now;
+            overshootStartMs = now;
+            cycleStartMs = now;
+            lastMotionProgressMs = now;
+            Motor::stop();
+            transition(State::CYCLING_DUMP_PAUSE);
         } else {
-            Motor::cw(settings.motorSpeed);
-            cycleStartMs = millis();
-            lastMotionProgressMs = cycleStartMs;
-            transition(State::RESETTING);
+            // Somewhere in between — drive CCW to DUMP first, pause for
+            // waste to fall, then CW back to HOME plus the level shake.
+            // Same path as a regular cycle so the litter ends up properly
+            // dumped and levelled.
+            resetInProgress = true;
+            cycleBeginMs = now;
+            cycleStartMs = now;
+            lastMotionProgressMs = now;
+            Motor::ccw(settings.motorSpeed);
+            transition(State::CYCLING_CCW);
         }
         return true;
     }
@@ -421,12 +562,16 @@ bool requestResume() {
     uint32_t now = millis();
     cycleStartMs = now;
     switch (stateBeforePause) {
-        case State::CYCLING_CCW:            Motor::ccw(settings.motorSpeed); break;
-        case State::CYCLING_OVERSHOOT_DUMP: Motor::ccw(settings.motorSpeed); overshootStartMs = now; break;
-        case State::CYCLING_CW:             Motor::cw(settings.motorSpeed);  break;
-        case State::EMPTYING:               Motor::ccw(settings.motorSpeed); break;
-        case State::EMPTYING_OVERSHOOT:     Motor::ccw(settings.motorSpeed); overshootStartMs = now; break;
-        case State::RESETTING:              Motor::cw(settings.motorSpeed);  break;
+        case State::CYCLING_CCW:             Motor::ccw(settings.motorSpeed); break;
+        case State::CYCLING_DUMP_PAUSE:  overshootStartMs = now; break;  // motor stays stopped during pause-at-DUMP
+        case State::CYCLING_CW:              Motor::cw(settings.motorSpeed);  break;
+        case State::CYCLING_LEVEL_OVERSHOOT:      Motor::cw(settings.motorSpeed); overshootStartMs = now; break;
+        case State::CYCLING_LEVEL_RETURN:         Motor::ccw(settings.motorSpeed); levelReturnArmed = false; break;
+        case State::CYCLING_LEVEL_BACK_OVERSHOOT: Motor::ccw(settings.motorSpeed); overshootStartMs = now; break;
+        case State::CYCLING_LEVEL_BACK_RETURN:    Motor::cw(settings.motorSpeed);  levelReturnArmed = false; break;
+        case State::EMPTYING:                     Motor::ccw(settings.motorSpeed); break;
+        case State::EMPTYING_DUMP_PAUSE:          overshootStartMs = now; break;  // motor stays stopped during pause-at-DUMP
+        case State::RESETTING:                    Motor::cw(settings.motorSpeed);  break;
         default: break;
     }
     transition(stateBeforePause);
@@ -457,7 +602,10 @@ void clearHistory() {
 
 void serializeStatus(JsonObject obj) {
     obj["state"] = stateName(currentState);
+    obj["reset_in_progress"] = resetInProgress;
     obj["cat_present"] = Sensors::isCatPresent();
+    obj["home_position"] = Sensors::isHomePosition();
+    obj["dump_position"] = Sensors::isDumpPosition();
     obj["weight_kg"] = Sensors::getCurrentWeight();
     obj["weight_enabled"] = settings.weightEnabled;
     obj["presence_enabled"] = settings.presenceEnabled;

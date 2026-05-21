@@ -16,10 +16,14 @@ enum class State : uint8_t {
     CAT_INSIDE,
     WAITING,
     CYCLING_CCW,
-    CYCLING_OVERSHOOT_DUMP,  // motor stays CCW past DUMP for cycle_overshoot_sec
+    CYCLING_DUMP_PAUSE,        // motor STOPPED at DUMP for cycle_dump_pause_sec (waste falls)
     CYCLING_CW,
+    CYCLING_LEVEL_OVERSHOOT,        // after CW reaches HOME, motor keeps going CW for cycle_level_overshoot_sec (first half of the sand "shake")
+    CYCLING_LEVEL_RETURN,           // motor CCW back to HOME after the level overshoot
+    CYCLING_LEVEL_BACK_OVERSHOOT,   // motor keeps going CCW past HOME for CYCLE_LEVEL_BACK_OVERSHOOT_SEC (second half of the shake, in the opposite direction)
+    CYCLING_LEVEL_BACK_RETURN,      // motor CW back to HOME after the back overshoot, then stop
     EMPTYING,
-    EMPTYING_OVERSHOOT,      // motor stays CCW past DUMP for empty_overshoot_sec
+    EMPTYING_DUMP_PAUSE,       // motor STOPPED at DUMP for empty_dump_pause_sec (pull tray)
     RESETTING,
     PAUSED,
     ERROR,

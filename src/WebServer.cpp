@@ -291,6 +291,16 @@ void begin() {
 
 void loop() {
     ws.cleanupClients();
+    // Periodic status broadcast so live sensor toggles (HOME, DUMP, cat
+    // switch) update the dashboard in real time, not just on state
+    // transitions. 500 ms is plenty responsive for the human eye and is
+    // a few hundred bytes per second per client.
+    static uint32_t lastBroadcastMs = 0;
+    uint32_t now = millis();
+    if (ws.count() > 0 && now - lastBroadcastMs >= 500) {
+        broadcastStatus();
+        lastBroadcastMs = now;
+    }
 }
 
 void broadcastStatus() {

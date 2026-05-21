@@ -66,6 +66,16 @@
       </div>
 
       <div class="card">
+        <h3>Sensors</h3>
+        <p class="muted small">Live state of the three digital inputs. Rotate the globe by hand: HOME and DUMP should light up green when their magnets pass the sensors. CAT lights up when the pedal switch is pressed.</p>
+        <div class="sensor-row">
+          <div class="sensor-pill" id="sn-home"><span class="sn-dot"></span><span>HOME</span></div>
+          <div class="sensor-pill" id="sn-dump"><span class="sn-dot"></span><span>DUMP</span></div>
+          <div class="sensor-pill" id="sn-cat"><span class="sn-dot"></span><span>CAT</span></div>
+        </div>
+      </div>
+
+      <div class="card">
         <h3>Controls</h3>
         <div class="btn-grid">
           <button class="btn primary" data-cmd="cycle">Start cycle</button>
@@ -150,10 +160,14 @@
         <label>Cat fallback timeout (min) <input data-cfg="cat_timeout_min" type="number" min="1" max="60" /></label>
         <label>Cycle watchdog (sec) <input data-cfg="cycle_timeout_sec" type="number" min="30" max="600" /></label>
         <label>Anti-pinch reverse (ms) <input data-cfg="anti_pinch_reverse_ms" type="number" min="0" max="10000" /></label>
-        <h4>Overshoot</h4>
-        <p class="muted small">Extra seconds the motor keeps running past the DUMP magnet. Higher values dump more completely but take longer. Defaults are reasonable starting points — tune by watching the globe stop position.</p>
-        <label>Cycle overshoot (sec) <input data-cfg="cycle_overshoot_sec" type="number" min="0" max="60" /></label>
-        <label>Empty overshoot (sec) <input data-cfg="empty_overshoot_sec" type="number" min="0" max="60" /></label>
+        <h4>Pause at DUMP</h4>
+        <p class="muted small">Seconds the motor stays STOPPED at the DUMP sensor so waste can fall through the dump door. The motor does <em>not</em> rotate past DUMP — on real Litter Robot mechanics, continuing past DUMP would close the door again. For Empty, this is how long to wait there before returning home (e.g. enough time to pull the tray).</p>
+        <label>Cycle dump pause (sec) <input data-cfg="cycle_dump_pause_sec" type="number" min="0" max="60" /></label>
+        <label>Empty dump pause (sec) <input data-cfg="empty_dump_pause_sec" type="number" min="0" max="60" /></label>
+
+        <h4>Level overshoot (sand shake)</h4>
+        <p class="muted small">After the CW return reaches HOME, the motor keeps going CW for this many seconds (first half of the shake), reverses CCW back through HOME and continues another 5 s past HOME (hardcoded back-shake), then reverses CW one last time and stops at HOME. The double oscillation distributes the sand evenly. Set to 0 to disable both halves and stop directly at HOME.</p>
+        <label>Cycle level overshoot (sec) <input data-cfg="cycle_level_overshoot_sec" type="number" min="0" max="30" /></label>
       </div>
 
       <!-- Hardware -->
