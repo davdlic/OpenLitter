@@ -221,10 +221,28 @@
       <!-- System -->
       <div class="card sub" data-sub="system" hidden>
         <h3>System</h3>
-        <label class="row"><span>OTA enabled</span><input data-cfg="ota_enabled" type="checkbox" /></label>
+        <label class="row"><span>OTA enabled (legacy ArduinoOTA)</span><input data-cfg="ota_enabled" type="checkbox" /></label>
         <label>OTA password <input data-cfg="ota_password" type="text" /></label>
         <label>History size <input data-cfg="history_max_entries" type="number" min="1" max="100" /></label>
 
+        <h4>Firmware update</h4>
+        <p class="muted small">Upload a <code>firmware.bin</code> or <code>littlefs.bin</code> from a <a href="https://github.com/davdlic/OpenLitter/releases" target="_blank" rel="noopener">GitHub release</a>. The device reboots automatically on success.</p>
+        <label>What to update
+          <select id="upd-type">
+            <option value="firmware">Firmware (firmware.bin)</option>
+            <option value="fs">Web UI / filesystem (littlefs.bin)</option>
+          </select>
+        </label>
+        <label class="btn file-btn">
+          Choose file<input type="file" id="upd-file" accept=".bin" hidden />
+        </label>
+        <div class="muted small" id="upd-filename">No file selected</div>
+        <div class="progress" id="upd-progress" hidden>
+          <div class="progress-bar" id="upd-bar">0%</div>
+        </div>
+        <button class="btn primary" id="btn-upd-start" disabled>Upload &amp; install</button>
+
+        <h4>Maintenance</h4>
         <div class="btn-grid">
           <button class="btn" id="btn-clear-history">Clear history</button>
           <button class="btn" id="btn-restart">Restart ESP32</button>

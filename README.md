@@ -31,6 +31,7 @@ OpenLitter brings a dead Litter Robot back to life with a cheap ESP32, an L298N 
 - **Optional mmWave presence sensor** (HLK-LD2410C) as an extra confirmation layer.
 - **Last 20 cleaning cycles** kept in history (NVS).
 - **Live logs in the browser** — Logs tab in the Web UI streams state transitions, WiFi/MQTT/Update events in real time over WebSocket. Filter by Info/Warn/Error, pause, download as `.txt`.
+- **In-browser firmware update** — drop a `firmware.bin` / `littlefs.bin` onto the Web UI; progress bar + post-reboot polling, no PC tools required. See [docs/updating.md](docs/updating.md).
 - **OTA updates** with password protection.
 - **mDNS** — reach the device at `openlitter.local`.
 - **100 % configurable pins** and switch type (NC/NO) — no recompile needed for most settings.
@@ -145,7 +146,7 @@ The full list of compile-time defaults lives in [src/config.h](src/config.h). At
 - **Hardware** — motor pins, motor speed, Hall pins, switch pin and type (NC/NO), debounce.
 - **Sensors** — weight sensor (capacity, threshold, tare), LD2410C presence sensor.
 - **MQTT** — broker, port, credentials, topic base, HA auto-discovery toggle.
-- **System** — OTA toggle, history size, factory reset, config import/export, restart.
+- **System** — in-browser firmware/filesystem update, OTA toggle, history size, factory reset, config import/export, restart.
 
 Settings, WiFi credentials and cycle history are persisted in the ESP32 NVS partition (Arduino `Preferences`, namespace `openlitter`). Re-running `pio run -t uploadfs` to update the Web UI no longer wipes user data.
 

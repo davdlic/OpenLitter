@@ -519,4 +519,25 @@ main {
 .log-line.log-W { color: #f0c674; }
 .log-line.log-E { color: #f08080; }
 
+/* ---------- Update progress bar ---------- */
+.progress {
+  background: #1c1d33;
+  border-radius: 6px;
+  overflow: hidden;
+  height: 22px;
+  margin: 0.6rem 0;
+}
+
+.progress-bar {
+  background: linear-gradient(90deg, #5b8bf7, #7ac9f5);
+  height: 100%;
+  width: 0;
+  transition: width 0.1s linear;
+  color: #0a0b18;
+  font-size: 0.78rem;
+  text-align: center;
+  line-height: 22px;
+  font-weight: 600;
+}
+
 

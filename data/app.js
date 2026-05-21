@@ -411,6 +411,113 @@
     URL.revokeObjectURL(a.href);
   });
 
+  // ---------- Firmware / filesystem update ----------
+  (function setupUpdate() {
+    const fileInput = $('#upd-file');
+    const fileLabel = $('#upd-filename');
+    const startBtn  = $('#btn-upd-start');
+    const typeSel   = $('#upd-type');
+    const progress  = $('#upd-progress');
+    const bar       = $('#upd-bar');
+    if (!fileInput || !startBtn) return;
+    let chosenFile = null;
+
+    fileInput.addEventListener('change', (e) => {
+      chosenFile = e.target.files[0] || null;
+      fileLabel.textContent = chosenFile ? `${chosenFile.name} (${(chosenFile.size / 1024).toFixed(1)} KB)` : 'No file selected';
+      startBtn.disabled = !chosenFile;
+    });
+
+    startBtn.addEventListener('click', () => {
+      if (!chosenFile) return;
+      const type = typeSel.value;
+      const msg = type === 'fs'
+        ? 'Uploading the Web UI replaces /index.html and friends. If it fails mid-flash you may need to reflash via USB. Continue?'
+        : 'Upload firmware and reboot? The device will be unreachable for ~30 seconds.';
+      if (!confirm(msg)) return;
+
+      const form = new FormData();
+      form.append('update', chosenFile, chosenFile.name);
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `/api/update?type=${type}`, true);
+      progress.hidden = false;
+      bar.style.width = '0%';
+      bar.textContent = '0%';
+      startBtn.disabled = true;
+
+      xhr.upload.onprogress = (e) => {
+        if (!e.lengthComputable) return;
+        const pct = Math.round((e.loaded / e.total) * 100);
+        bar.style.width = pct + '%';
+        bar.textContent = `Uploading ${pct}%`;
+      };
+      xhr.onload = () => {
+        let res = {};
+        try { res = JSON.parse(xhr.responseText); } catch (_) {}
+        if (xhr.status >= 200 && xhr.status < 300 && res.ok) {
+          bar.style.width = '100%';
+          bar.textContent = 'Installing...';
+          toast('Upload OK, installing...');
+          waitForDevice();
+        } else {
+          bar.textContent = 'Failed';
+          toast('Update failed: ' + (res.error || `HTTP ${xhr.status}`), true);
+          startBtn.disabled = false;
+        }
+      };
+      xhr.onerror = () => {
+        bar.textContent = 'Network error';
+        toast('Upload error', true);
+        startBtn.disabled = false;
+      };
+      xhr.send(form);
+      toast('Uploading...');
+    });
+
+    // Poll /api/status after a reboot until the device answers again.
+    function waitForDevice() {
+      const MAX_SECONDS = 90;
+      let elapsed = 0;
+      let preBootVersion = lastStatus && lastStatus.version;
+      const tick = async () => {
+        try {
+          const ctl = new AbortController();
+          const to  = setTimeout(() => ctl.abort(), 1500);
+          const r = await fetch('/api/status', { signal: ctl.signal, cache: 'no-store' });
+          clearTimeout(to);
+          if (r.ok) {
+            let json = null;
+            try { json = await r.json(); } catch (_) {}
+            // Heuristic: any successful response after the reboot grace
+            // means the device booted. If the version changed (firmware
+            // update) or uptime is small (filesystem update reuses the
+            // running firmware but still reboots), we're done.
+            if (json && (!preBootVersion || json.version !== preBootVersion || (json.uptime_sec || 0) < 60)) {
+              bar.textContent = 'Back online — reloading';
+              toast('Device back online');
+              setTimeout(() => location.reload(), 800);
+              return;
+            }
+          }
+        } catch (_) {
+          // device still rebooting — keep waiting
+        }
+        elapsed++;
+        if (elapsed > MAX_SECONDS) {
+          bar.textContent = 'Timed out — reload manually';
+          toast('Update timed out, try reloading', true);
+          startBtn.disabled = false;
+          return;
+        }
+        bar.textContent = `Waiting for device... (${elapsed}s)`;
+        setTimeout(tick, 1000);
+      };
+      // Give the ESP ~3 s to write the last block, send the response,
+      // and reboot before we start probing it.
+      setTimeout(tick, 3000);
+    }
+  })();
+
   $('#file-import').addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (!file) return;

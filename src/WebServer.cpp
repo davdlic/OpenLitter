@@ -232,11 +232,17 @@ void registerRoutes() {
             req->send(res);
             if (ok) { delay(200); ESP.restart(); }
         },
-        [](AsyncWebServerRequest *, String filename, size_t index, uint8_t *data,
+        [](AsyncWebServerRequest *req, String filename, size_t index, uint8_t *data,
            size_t len, bool final) {
             if (index == 0) {
-                Log::info("Update begin: %s", filename.c_str());
-                if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
+                int cmd = U_FLASH;
+                if (req->hasParam("type")) {
+                    String t = req->getParam("type")->value();
+                    if (t == "fs" || t == "filesystem") cmd = U_SPIFFS;
+                }
+                Log::info("Update begin: %s (%s)", filename.c_str(),
+                          cmd == U_FLASH ? "firmware" : "filesystem");
+                if (!Update.begin(UPDATE_SIZE_UNKNOWN, cmd)) {
                     Log::error("Update.begin failed: %s", Update.errorString());
                 }
             }
