@@ -55,14 +55,28 @@ When opening an issue please include:
 - **Serial log** at `CORE_DEBUG_LEVEL=3` covering at least one full reproduction.
 - **Web UI screenshots** if relevant.
 
+## Signed commits
+
+All commits to `main` must be cryptographically signed and verified by GitHub. Use SSH commit signing (simpler than GPG):
+
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/openlitter_signing -C "your-name signing"
+git config --global gpg.format ssh
+git config --global user.signingkey ~/.ssh/openlitter_signing.pub
+git config --global commit.gpgsign true
+git config --global tag.gpgsign true
+```
+
+Then add `~/.ssh/openlitter_signing.pub` to your GitHub account as a **Signing Key** (not Authentication Key) at [github.com/settings/keys](https://github.com/settings/keys). Pushes with unsigned commits are rejected on `main`.
+
 ## Roadmap
 
-| Phase   | Scope                                                            | Status        |
-|---------|------------------------------------------------------------------|---------------|
-| Phase 1 | Core firmware: state machine, Web UI, MQTT, OTA                  | In progress   |
-| Phase 2 | HACS custom integration + Lovelace card (`openlitter-ha` repo)   | Planned       |
-| Phase 3 | Advanced PWA: push notifications, local history graphs           | Planned       |
-| Phase 4 | Custom PCB replacing the ESP32 + L298N wiring                    | Planned       |
+| Phase   | Scope                                                                   | Status          |
+|---------|-------------------------------------------------------------------------|-----------------|
+| Phase 1 | Core firmware: state machine, Web UI, MQTT, OTA                         | Released (v0.3) |
+| Phase 2 | HACS custom integration + Lovelace card ([OpenLitter-HA](https://github.com/davdlic/OpenLitter-HA)) | Pre-1.0         |
+| Phase 3 | Advanced PWA: push notifications, local history graphs                  | Planned         |
+| Phase 4 | Custom PCB replacing the ESP32 + L298N wiring                           | Planned         |
 
 ## License
 
