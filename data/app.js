@@ -347,4 +347,72 @@
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   }
+
+  // ---------- Install banner ----------
+  // - Chromium browsers: capture beforeinstallprompt and show our own button
+  //   instead of the default mini-infobar.
+  // - iOS Safari: no install API exists, so show a hint pointing the user to
+  //   the Share menu (Apple does not allow programmatic prompts).
+  (function setupInstall() {
+    const banner = $('#install-banner');
+    if (!banner) return;
+    const hint    = $('#install-hint');
+    const action  = $('#install-action');
+    const close   = $('#install-close');
+    const DISMISS_KEY = 'openlitter-install-dismissed';
+
+    const ua = navigator.userAgent || '';
+    // iPadOS 13+ reports as "Macintosh" in UA, so detect via touch capability too.
+    const isIOS = (/iPad|iPhone|iPod/.test(ua) ||
+                   (ua.includes('Mac') && 'ontouchend' in document)) &&
+                  !window.MSStream;
+    const isStandalone =
+      window.matchMedia('(display-mode: standalone)').matches ||
+      window.navigator.standalone === true;
+    const dismissed = (() => {
+      try { return !!localStorage.getItem(DISMISS_KEY); } catch (e) { return false; }
+    })();
+
+    function show(reason) {
+      if (isStandalone || dismissed) return;
+      if (reason === 'ios') {
+        hint.innerHTML = 'Tap <span class="ios-share">⎘</span> then "Add to Home Screen"';
+        action.hidden = true;
+      }
+      banner.hidden = false;
+    }
+
+    close.addEventListener('click', () => {
+      banner.hidden = true;
+      try { localStorage.setItem(DISMISS_KEY, '1'); } catch (e) {}
+    });
+
+    let deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      hint.textContent = 'Add to your home screen for an app-like experience';
+      action.hidden = false;
+      if (!isStandalone && !dismissed) banner.hidden = false;
+    });
+
+    action.addEventListener('click', async () => {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      deferredPrompt = null;
+      action.hidden = true;
+      if (outcome === 'accepted') banner.hidden = true;
+    });
+
+    window.addEventListener('appinstalled', () => {
+      banner.hidden = true;
+      deferredPrompt = null;
+    });
+
+    if (isIOS && !isStandalone) {
+      // iOS will never fire beforeinstallprompt; show the hint right away.
+      show('ios');
+    }
+  })();
 })();

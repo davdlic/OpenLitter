@@ -382,3 +382,75 @@ main {
 @media (min-width: 600px) {
   .grid-2 { grid-template-columns: repeat(4, 1fr); }
 }
+
+/* ---------- Install banner ---------- */
+.install-banner {
+  position: fixed;
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: 5.25rem;             /* sits above the save bar */
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.7rem;
+  background: rgba(24, 26, 48, 0.97);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+  z-index: 6;
+  backdrop-filter: blur(8px);
+}
+
+.install-banner .install-icon img {
+  width: 40px;
+  height: 40px;
+  border-radius: 9px;
+  display: block;
+}
+
+.install-banner .install-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.88rem;
+  line-height: 1.25;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.install-banner .install-hint {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.install-banner .install-hint .ios-share {
+  display: inline-block;
+  padding: 0 0.25rem;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  font-weight: 600;
+}
+
+.install-banner .install-action {
+  padding: 0.45rem 0.85rem;
+  font-size: 0.85rem;
+}
+
+.install-banner .install-close {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  align-self: flex-start;
+}
+
+@media (min-width: 600px) {
+  .install-banner {
+    left: auto;
+    right: 1rem;
+    bottom: 1rem;
+    max-width: 380px;
+  }
+}
