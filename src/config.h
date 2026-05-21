@@ -60,7 +60,8 @@
 #define CAT_TIMEOUT_MIN         20   // Max minutes cat can be "inside" before assuming it left
 #define CYCLE_TIMEOUT_SEC       120  // Max seconds for a full cycle (safety watchdog)
 #define ANTI_PINCH_REVERSE_MS   2000 // Milliseconds to reverse on pinch detection
-#define PAUSED_AUTO_RESUME_SEC  15   // Seconds to wait while paused before resuming
+#define PAUSED_AUTO_RESUME_SEC  15   // Anti-pinch pause (cat detected during motion): seconds to wait before resuming
+#define MANUAL_PAUSE_AUTO_RESUME_SEC 300 // Manual pause (user pressed Pause): seconds to wait before resuming. Longer than anti-pinch so the user has time to intervene without the machine auto-restarting in 15 s
 #define CYCLE_OVERSHOOT_SEC     10   // Seconds to keep motor running past DUMP during a cleaning cycle (levels the litter and ensures full dump)
 #define EMPTY_OVERSHOOT_SEC     7    // Seconds to keep motor running past DUMP during a manual empty (ensures full dump)
 

@@ -39,6 +39,7 @@ uint32_t catEnteredMs = 0;       // when CAT_INSIDE started
 uint32_t pauseStartedMs = 0;
 uint32_t lastMotionProgressMs = 0;  // for anti-pinch
 uint32_t overshootStartMs = 0;      // when an OVERSHOOT_* state began
+bool     manualPause = false;       // true if PAUSED was entered via requestPause(), false if via anti-pinch
 
 uint32_t totalCycleCount = 0;
 uint32_t lastCycleTs = 0;
@@ -173,6 +174,7 @@ void runMotionWatchdog() {
         Motor::stop();
         stateBeforePause = currentState;
         pauseStartedMs = now;
+        manualPause = false;
         transition(State::PAUSED);
         return;
     }
@@ -288,8 +290,12 @@ void handleResetting() {
 
 void handlePaused() {
     uint32_t now = millis();
-    if (!Sensors::isCatPresent() && (now - pauseStartedMs) >= PAUSED_AUTO_RESUME_SEC * 1000UL) {
-        Serial.println("[State] Resuming after PAUSED grace period");
+    uint32_t graceMs = (manualPause ? MANUAL_PAUSE_AUTO_RESUME_SEC
+                                    : PAUSED_AUTO_RESUME_SEC) * 1000UL;
+    if ((now - pauseStartedMs) < graceMs) return;
+    if (!Sensors::isCatPresent()) {
+        Serial.printf("[State] Resuming after %s pause grace period\n",
+                      manualPause ? "manual" : "anti-pinch");
         cycleStartMs = now;
         switch (stateBeforePause) {
             case State::CYCLING_CCW:            Motor::ccw(settings.motorSpeed); break;
@@ -303,9 +309,8 @@ void handlePaused() {
         transition(stateBeforePause);
         return;
     }
-    if (Sensors::isCatPresent() && (now - pauseStartedMs) >= PAUSED_AUTO_RESUME_SEC * 1000UL) {
-        enterError("Cat still detected after pause grace period");
-    }
+    enterError(manualPause ? "Cat still detected after manual pause grace period"
+                           : "Cat still detected after pause grace period");
 }
 
 }  // namespace
@@ -406,6 +411,7 @@ bool requestPause() {
     Motor::stop();
     stateBeforePause = currentState;
     pauseStartedMs = millis();
+    manualPause = true;
     transition(State::PAUSED);
     return true;
 }
