@@ -6,6 +6,7 @@
 
 #include "OTA.h"
 #include "Settings.h"
+#include "Log.h"
 
 #include <ArduinoOTA.h>
 
@@ -17,25 +18,27 @@ bool started = false;
 
 void begin() {
     if (!settings.otaEnabled) {
-        Serial.println("[OTA] Disabled in settings");
+        Log::info("OTA disabled in settings");
         return;
     }
     ArduinoOTA.setHostname(settings.hostname);
     ArduinoOTA.setPassword(settings.otaPassword);
     ArduinoOTA.onStart([]() {
         const char *type = (ArduinoOTA.getCommand() == U_FLASH) ? "firmware" : "filesystem";
-        Serial.printf("[OTA] Start (%s)\n", type);
+        Log::info("OTA start (%s)", type);
     });
-    ArduinoOTA.onEnd([]() { Serial.println("[OTA] Done, rebooting"); });
+    ArduinoOTA.onEnd([]() { Log::info("OTA done, rebooting"); });
     ArduinoOTA.onProgress([](unsigned int p, unsigned int t) {
+        // Use plain Serial here: progress is high-frequency and the ring
+        // buffer + WS broadcast can't keep up at every percent tick.
         Serial.printf("[OTA] %u%%\r", (p * 100) / t);
     });
     ArduinoOTA.onError([](ota_error_t e) {
-        Serial.printf("[OTA] Error %u\n", e);
+        Log::error("OTA error %u", (unsigned)e);
     });
     ArduinoOTA.begin();
     started = true;
-    Serial.println("[OTA] Ready");
+    Log::info("OTA ready");
 }
 
 void loop() {

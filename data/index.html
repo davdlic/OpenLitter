@@ -27,6 +27,7 @@
     <nav class="tabs" id="tabs">
       <button class="tab active" data-tab="dashboard">Dashboard</button>
       <button class="tab" data-tab="settings">Settings</button>
+      <button class="tab" data-tab="logs">Logs</button>
     </nav>
   </header>
 
@@ -242,6 +243,25 @@
       <div class="save-bar">
         <span id="save-msg" class="muted small"></span>
         <button class="btn primary" id="btn-save">Save</button>
+      </div>
+    </section>
+
+    <!-- ====================== LOGS ====================== -->
+    <section id="view-logs" class="view">
+      <div class="card">
+        <div class="logs-toolbar">
+          <div class="log-filters">
+            <label><input type="checkbox" id="lf-i" checked /> Info</label>
+            <label><input type="checkbox" id="lf-w" checked /> Warn</label>
+            <label><input type="checkbox" id="lf-e" checked /> Error</label>
+          </div>
+          <div class="log-actions">
+            <button class="btn small" id="btn-log-pause">Pause</button>
+            <button class="btn small" id="btn-log-clear">Clear</button>
+            <button class="btn small" id="btn-log-download">Download</button>
+          </div>
+        </div>
+        <pre id="log-view" class="log-view" aria-live="polite"></pre>
       </div>
     </section>
   </main>

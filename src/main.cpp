@@ -23,6 +23,7 @@
 #include <time.h>
 
 #include "config.h"
+#include "Log.h"
 #include "Settings.h"
 #include "Motor.h"
 #include "Sensors.h"
@@ -77,6 +78,7 @@ void setup() {
     esp_task_wdt_init(HW_WDT_TIMEOUT_SEC, true);
     esp_task_wdt_add(nullptr);
 
+    Log::begin();
     mountFilesystem();
     bootstrapPreferences();
     settings.load();
@@ -91,7 +93,7 @@ void setup() {
     MQTTClient::begin();
     OTA::begin();
 
-    Serial.println("[Boot] Setup complete");
+    Log::info("Boot: setup complete (firmware v%s)", OPENLITTER_VERSION);
 }
 
 void loop() {

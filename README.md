@@ -29,7 +29,8 @@ OpenLitter brings a dead Litter Robot back to life with a cheap ESP32, an L298N 
 - **Optional MQTT** with Home Assistant auto-discovery (sensors, binary sensors, buttons).
 - **Optional weight sensor** (HX711 + 4 load cells under the feet) for reliable cat detection by weight delta.
 - **Optional mmWave presence sensor** (HLK-LD2410C) as an extra confirmation layer.
-- **Last 20 cleaning cycles** kept in history (RAM + LittleFS).
+- **Last 20 cleaning cycles** kept in history (NVS).
+- **Live logs in the browser** — Logs tab in the Web UI streams state transitions, WiFi/MQTT/Update events in real time over WebSocket. Filter by Info/Warn/Error, pause, download as `.txt`.
 - **OTA updates** with password protection.
 - **mDNS** — reach the device at `openlitter.local`.
 - **100 % configurable pins** and switch type (NC/NO) — no recompile needed for most settings.

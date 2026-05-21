@@ -31,9 +31,10 @@
     btn.addEventListener('click', () => {
       $$('#tabs .tab').forEach(t => t.classList.toggle('active', t === btn));
       const target = btn.dataset.tab;
-      $$('#view-dashboard, #view-settings').forEach(v => {
+      $$('#view-dashboard, #view-settings, #view-logs').forEach(v => {
         v.classList.toggle('active', v.id === `view-${target}`);
       });
+      if (target === 'logs') hydrateLogs();
     });
   });
 
@@ -53,7 +54,11 @@
       try {
         const data = JSON.parse(e.data);
         wsRetry = 1000;
-        applyStatus(data);
+        if (data && data.type === 'log') {
+          appendLog(data);
+        } else {
+          applyStatus(data);
+        }
       } catch (err) {
         console.warn('Bad WS payload', err);
       }
@@ -65,6 +70,91 @@
     ws.onerror = () => ws.close();
   }
   connectWs();
+
+  // ---------- Logs ----------
+  const LOG_MAX_LINES = 500;
+  const logFilters = { I: true, W: true, E: true };
+  let logPaused = false;
+  let logHydrated = false;
+
+  function appendLog(entry) {
+    const view = $('#log-view');
+    if (!view) return;
+    const level = entry.level || 'I';
+    if (!logFilters[level]) return;
+    const ms = entry.ms || 0;
+    const line = document.createElement('span');
+    line.className = `log-line log-${level}`;
+    line.textContent = `[${level}] ${String(ms).padStart(8)}  ${entry.msg || ''}\n`;
+    view.appendChild(line);
+    while (view.childElementCount > LOG_MAX_LINES) {
+      view.firstElementChild.remove();
+    }
+    if (!logPaused) view.scrollTop = view.scrollHeight;
+  }
+
+  function parseDumpLine(line) {
+    // Server format: "[L] {bootMs:>8}  message"
+    const m = line.match(/^\[([IWE])\]\s+(\d+)\s+(.*)$/);
+    if (!m) return null;
+    return { level: m[1], ms: parseInt(m[2], 10), msg: m[3] };
+  }
+
+  async function hydrateLogs() {
+    if (logHydrated) return;
+    logHydrated = true;
+    const view = $('#log-view');
+    if (!view) return;
+    try {
+      const res = await fetch('/api/logs');
+      const text = await res.text();
+      view.innerHTML = '';
+      text.split('\n').forEach(line => {
+        if (!line.trim()) return;
+        const e = parseDumpLine(line);
+        if (e) appendLog(e);
+      });
+    } catch (e) {
+      view.textContent = '(failed to fetch logs)';
+    }
+  }
+
+  ['lf-i', 'lf-w', 'lf-e'].forEach(id => {
+    const el = $('#' + id);
+    if (!el) return;
+    const lv = id.slice(-1).toUpperCase();
+    el.addEventListener('change', () => {
+      logFilters[lv] = el.checked;
+      $$('#log-view .log-line').forEach(s => {
+        const sl = s.className.match(/log-([IWE])/);
+        if (!sl) return;
+        s.hidden = !logFilters[sl[1]];
+      });
+    });
+  });
+
+  $('#btn-log-pause')?.addEventListener('click', () => {
+    logPaused = !logPaused;
+    $('#btn-log-pause').textContent = logPaused ? 'Resume' : 'Pause';
+    if (!logPaused) {
+      const v = $('#log-view');
+      v.scrollTop = v.scrollHeight;
+    }
+  });
+
+  $('#btn-log-clear')?.addEventListener('click', () => {
+    $('#log-view').innerHTML = '';
+  });
+
+  $('#btn-log-download')?.addEventListener('click', () => {
+    const text = $('#log-view').innerText;
+    const blob = new Blob([text], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `openlitter-logs-${Date.now()}.txt`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
 
   // ---------- Status renderer ----------
   function fmtTime(secEpoch) {

@@ -4,7 +4,7 @@
  * Licensed under the GNU General Public License v3.0 - see LICENSE.
  */
 
-const CACHE = 'openlitter-v4';
+const CACHE = 'openlitter-v5';
 const ASSETS = [
   '/',
   '/index.html',

@@ -11,6 +11,7 @@
 #include "WiFiManager.h"
 #include "MQTTClient.h"
 #include "Motor.h"
+#include "Log.h"
 #include "config.h"
 
 #include <ESPAsyncWebServer.h>
@@ -36,6 +37,7 @@ void onStateChange(StateMachine::State, StateMachine::State) {
 String buildStatusJson() {
     JsonDocument doc;
     JsonObject obj = doc.to<JsonObject>();
+    obj["type"] = "status";
     StateMachine::serializeStatus(obj);
     JsonObject net = obj["network"].to<JsonObject>();
     WiFiManager::serializeStatus(net);
@@ -45,6 +47,18 @@ String buildStatusJson() {
     String out;
     serializeJson(doc, out);
     return out;
+}
+
+void broadcastLog(Log::Level lvl, uint32_t bootMs, const char *msg) {
+    if (ws.count() == 0) return;
+    JsonDocument doc;
+    doc["type"]  = "log";
+    doc["level"] = Log::levelTag(lvl);
+    doc["ms"]    = bootMs;
+    doc["msg"]   = msg;
+    String out;
+    serializeJson(doc, out);
+    ws.textAll(out);
 }
 
 void wsEvent(AsyncWebSocket *, AsyncWebSocketClient *client, AwsEventType type,
@@ -94,6 +108,13 @@ void registerRoutes() {
     server.on("/api/history/clear", HTTP_POST, [](AsyncWebServerRequest *req) {
         StateMachine::clearHistory();
         sendOk(req);
+    });
+
+    // --- Logs ---
+    server.on("/api/logs", HTTP_GET, [](AsyncWebServerRequest *req) {
+        String out;
+        Log::dump(out);
+        req->send(200, "text/plain; charset=utf-8", out);
     });
 
     // --- Commands ---
@@ -214,14 +235,21 @@ void registerRoutes() {
         [](AsyncWebServerRequest *, String filename, size_t index, uint8_t *data,
            size_t len, bool final) {
             if (index == 0) {
-                Serial.printf("[Update] Begin %s\n", filename.c_str());
-                if (!Update.begin(UPDATE_SIZE_UNKNOWN)) Update.printError(Serial);
+                Log::info("Update begin: %s", filename.c_str());
+                if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
+                    Log::error("Update.begin failed: %s", Update.errorString());
+                }
             }
-            if (Update.write(data, len) != len) Update.printError(Serial);
+            if (Update.write(data, len) != len) {
+                Log::error("Update.write short write: %s", Update.errorString());
+            }
             if (final) {
-                if (Update.end(true)) Serial.printf("[Update] OK (%u bytes)\n",
-                                                    (unsigned)(index + len));
-                else Update.printError(Serial);
+                if (Update.end(true)) {
+                    Log::info("Update OK (%u bytes), rebooting",
+                              (unsigned)(index + len));
+                } else {
+                    Log::error("Update.end failed: %s", Update.errorString());
+                }
             }
         });
 
@@ -251,7 +279,8 @@ void begin() {
     registerRoutes();
     server.begin();
     StateMachine::setOnStateChange(onStateChange);
-    Serial.printf("[Web] Listening on port %u\n", WEB_PORT);
+    Log::setSubscriber(broadcastLog);
+    Log::info("Web listening on port %u", WEB_PORT);
 }
 
 void loop() {

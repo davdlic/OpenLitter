@@ -8,6 +8,7 @@
 #include "Settings.h"
 #include "Motor.h"
 #include "Sensors.h"
+#include "Log.h"
 #include "config.h"
 
 #include <Preferences.h>
@@ -57,14 +58,14 @@ void transition(State next) {
     if (next == currentState) return;
     State prev = currentState;
     currentState = next;
-    Serial.printf("[State] %s -> %s\n", stateName(prev), stateName(next));
+    Log::info("State %s -> %s", stateName(prev), stateName(next));
     fireStateChange(prev, next);
 }
 
 void enterError(const char *msg) {
     currentError = msg;
     Motor::stop();
-    Serial.printf("[State] ERROR: %s\n", msg);
+    Log::error("State entering ERROR: %s", msg);
     transition(State::ERROR);
 }
 
@@ -142,7 +143,7 @@ void loadHistory() {
         hdr.version != HISTORY_VERSION ||
         hdr.entrySize != sizeof(CycleRecord) ||
         hdr.capacity != HISTORY_MAX_ENTRIES) {
-        Serial.println("[State] History blob incompatible, discarding");
+        Log::warn("History blob incompatible, discarding");
         return;
     }
     memcpy(history, buf + sizeof(hdr), sizeof(history));
@@ -150,8 +151,7 @@ void loadHistory() {
     historyHead      = hdr.head;
     totalCycleCount  = hdr.totalCycleCount;
     lastCycleTs      = hdr.lastCycleTs;
-    Serial.printf("[State] History restored from NVS (%u entries)\n",
-                  (unsigned)historyCount);
+    Log::info("History restored from NVS (%u entries)", (unsigned)historyCount);
 }
 
 bool isMotionState(State s) {
@@ -170,7 +170,7 @@ void runMotionWatchdog() {
     }
     // Anti-pinch: if cat switch activates during motion, pause immediately.
     if (Sensors::isCatPresent()) {
-        Serial.println("[State] Cat detected during motion -> PAUSED");
+        Log::warn("Cat detected during motion -> PAUSED");
         Motor::stop();
         stateBeforePause = currentState;
         pauseStartedMs = now;
@@ -198,7 +198,7 @@ void handleCatInside() {
     uint32_t now = millis();
     bool fallback = (now - catEnteredMs) > (uint32_t)settings.catTimeoutMin * 60UL * 1000UL;
     if (!catStillThere() || fallback) {
-        if (fallback) Serial.println("[State] Cat timeout fallback (assumed left)");
+        if (fallback) Log::warn("Cat timeout fallback (assumed left)");
         catLeftMs = now;
         transition(State::WAITING);
     }
@@ -294,8 +294,8 @@ void handlePaused() {
                                     : PAUSED_AUTO_RESUME_SEC) * 1000UL;
     if ((now - pauseStartedMs) < graceMs) return;
     if (!Sensors::isCatPresent()) {
-        Serial.printf("[State] Resuming after %s pause grace period\n",
-                      manualPause ? "manual" : "anti-pinch");
+        Log::info("Resuming after %s pause grace period",
+                  manualPause ? "manual" : "anti-pinch");
         cycleStartMs = now;
         switch (stateBeforePause) {
             case State::CYCLING_CCW:            Motor::ccw(settings.motorSpeed); break;
@@ -319,14 +319,14 @@ void begin() {
     bootMillis = millis();
     loadHistory();
     if (Sensors::isHomePosition()) {
-        Serial.println("[State] Initialised in IDLE (globe at HOME)");
+        Log::info("Initialised in IDLE (globe at HOME)");
         return;
     }
     // Globe is not at HOME on boot — could be a power cut mid-cycle, manual
     // repositioning, or first install. Drive CW into RESETTING; the existing
     // handleResetting() takes it the rest of the way and transitions to IDLE
     // once the HOME sensor latches. Motion watchdog applies as usual.
-    Serial.println("[State] Boot: globe not at HOME, returning to HOME");
+    Log::warn("Boot: globe not at HOME, returning to HOME");
     Motor::cw(settings.motorSpeed);
     cycleStartMs = millis();
     lastMotionProgressMs = cycleStartMs;
@@ -482,7 +482,7 @@ void serializeHistory(JsonArray arr) {
 void setOnStateChange(StateChangeCallback cb) {
     if (!cb) return;
     if (onChangeCount >= MAX_CALLBACKS) {
-        Serial.println("[State] setOnStateChange: callback table full");
+        Log::warn("setOnStateChange: callback table full");
         return;
     }
     onChangeCallbacks[onChangeCount++] = cb;

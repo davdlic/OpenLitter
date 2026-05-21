@@ -8,6 +8,7 @@
 #include "Settings.h"
 #include "StateMachine.h"
 #include "Sensors.h"
+#include "Log.h"
 #include "config.h"
 
 #include <WiFi.h>
@@ -130,7 +131,7 @@ void publishHaDiscovery() {
     }
 
     discoveryPublished = true;
-    Serial.println("[MQTT] HA discovery published");
+    Log::info("MQTT HA discovery published");
 }
 
 void onStateChange(StateMachine::State, StateMachine::State) {
@@ -153,7 +154,7 @@ bool reconnect() {
                           avail.c_str(), 0, true, "offline");
     }
     if (!ok) {
-        Serial.printf("[MQTT] Connect failed, rc=%d\n", mqtt.state());
+        Log::warn("MQTT connect failed, rc=%d", mqtt.state());
         return false;
     }
     mqtt.publish(avail.c_str(), "online", true);
@@ -161,7 +162,7 @@ bool reconnect() {
     mqtt.subscribe(cmd.c_str());
     publishHaDiscovery();
     publishStatus();
-    Serial.println("[MQTT] Connected");
+    Log::info("MQTT connected");
     return true;
 }
 
@@ -169,7 +170,7 @@ bool reconnect() {
 
 void begin() {
     if (!settings.mqttEnabled) {
-        Serial.println("[MQTT] Disabled");
+        Log::info("MQTT disabled");
         return;
     }
     uniqueId = WiFi.macAddress();
@@ -178,8 +179,8 @@ void begin() {
     mqtt.setCallback(onMessage);
     mqtt.setBufferSize(1024);
     StateMachine::setOnStateChange(onStateChange);
-    Serial.printf("[MQTT] Configured for %s:%u\n",
-                  settings.mqttBroker, settings.mqttPort);
+    Log::info("MQTT configured for %s:%u",
+              settings.mqttBroker, settings.mqttPort);
 }
 
 void applySettings() {

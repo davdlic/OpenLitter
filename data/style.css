@@ -462,3 +462,61 @@ main {
     max-width: 380px;
   }
 }
+
+/* ---------- Logs view ---------- */
+.logs-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.log-filters {
+  display: flex;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.log-filters label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.log-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.btn.small {
+  padding: 0.3rem 0.7rem;
+  font-size: 0.85rem;
+}
+
+.log-view {
+  background: #050610;
+  color: #c8d0e6;
+  border: 1px solid #1c1d33;
+  border-radius: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  padding: 0.75rem;
+  margin: 0;
+  height: 60vh;
+  min-height: 280px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.log-line { display: inline; }
+.log-line.log-I { color: #c8d0e6; }
+.log-line.log-W { color: #f0c674; }
+.log-line.log-E { color: #f08080; }
+
+

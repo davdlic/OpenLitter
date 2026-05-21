@@ -5,6 +5,7 @@
  */
 
 #include "Settings.h"
+#include "Log.h"
 #include "config.h"
 
 #include <Preferences.h>
@@ -87,23 +88,23 @@ bool Settings::load() {
     resetToDefaults();
     Preferences prefs;
     if (!prefs.begin(NVS_NAMESPACE, /*readOnly=*/true)) {
-        Serial.println("[Settings] NVS open failed, using defaults");
+        Log::warn("Settings NVS open failed, using defaults");
         return false;
     }
     String json = prefs.getString(NVS_KEY_SETTINGS, "");
     prefs.end();
     if (json.isEmpty()) {
-        Serial.println("[Settings] No NVS entry, using defaults");
+        Log::info("Settings: no NVS entry, using defaults");
         return false;
     }
     JsonDocument doc;
     DeserializationError err = deserializeJson(doc, json);
     if (err) {
-        Serial.printf("[Settings] NVS JSON parse error: %s\n", err.c_str());
+        Log::error("Settings NVS JSON parse error: %s", err.c_str());
         return false;
     }
     applyJson(doc.as<JsonObjectConst>());
-    Serial.println("[Settings] Loaded from NVS");
+    Log::info("Settings loaded from NVS");
     return true;
 }
 
@@ -116,16 +117,16 @@ bool Settings::save() const {
 
     Preferences prefs;
     if (!prefs.begin(NVS_NAMESPACE, /*readOnly=*/false)) {
-        Serial.println("[Settings] NVS open RW failed");
+        Log::error("Settings NVS open RW failed");
         return false;
     }
     size_t written = prefs.putString(NVS_KEY_SETTINGS, json);
     prefs.end();
     if (written == 0) {
-        Serial.println("[Settings] NVS putString returned 0 bytes");
+        Log::error("Settings NVS putString returned 0 bytes");
         return false;
     }
-    Serial.printf("[Settings] Saved to NVS (%u bytes)\n", (unsigned)written);
+    Log::info("Settings saved to NVS (%u bytes)", (unsigned)written);
     return true;
 }
 

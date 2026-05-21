@@ -6,6 +6,7 @@
 
 #include "WiFiManager.h"
 #include "Settings.h"
+#include "Log.h"
 #include "config.h"
 
 #include <WiFi.h>
@@ -72,7 +73,7 @@ void applyStaticIpIfConfigured() {
 
 bool tryConnectStation(uint32_t timeoutMs) {
     if (creds.ssid.isEmpty()) return false;
-    Serial.printf("[WiFi] Connecting to '%s'...\n", creds.ssid.c_str());
+    Log::info("WiFi connecting to '%s'...", creds.ssid.c_str());
     WiFi.mode(WIFI_STA);
     applyHostname();
     applyStaticIpIfConfigured();
@@ -80,13 +81,13 @@ bool tryConnectStation(uint32_t timeoutMs) {
     uint32_t start = millis();
     while (millis() - start < timeoutMs) {
         if (WiFi.status() == WL_CONNECTED) {
-            Serial.printf("[WiFi] Connected: IP=%s, RSSI=%d dBm\n",
-                          WiFi.localIP().toString().c_str(), WiFi.RSSI());
+            Log::info("WiFi connected: IP=%s, RSSI=%d dBm",
+                      WiFi.localIP().toString().c_str(), WiFi.RSSI());
             return true;
         }
         delay(200);
     }
-    Serial.println("[WiFi] Connect timeout");
+    Log::warn("WiFi connect timeout");
     return false;
 }
 
@@ -95,9 +96,9 @@ void startCaptiveDns() {
     dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
     if (dnsServer.start(DNS_PORT, "*", AP_IP)) {
         dnsStarted = true;
-        Serial.println("[WiFi] Captive DNS started on port 53");
+        Log::info("WiFi captive DNS started on port 53");
     } else {
-        Serial.println("[WiFi] Captive DNS failed to start");
+        Log::error("WiFi captive DNS failed to start");
     }
 }
 
@@ -108,14 +109,14 @@ void stopCaptiveDns() {
 }
 
 void startRecoveryAp() {
-    Serial.println("[WiFi] Starting recovery AP");
+    Log::info("WiFi starting recovery AP");
     // ESP32 Arduino 3.x: softAP() must be called BEFORE softAPConfig() —
     // otherwise the DHCP server isn't always reconfigured to the new range.
     bool ok = WiFi.softAP(AP_SSID, settings.apPassword);
     WiFi.softAPConfig(AP_IP, AP_IP, IPAddress(255, 255, 255, 0));
-    Serial.printf("[WiFi] AP '%s' @ %s (softAP %s)\n",
-                  AP_SSID, WiFi.softAPIP().toString().c_str(),
-                  ok ? "ok" : "FAILED");
+    Log::info("WiFi AP '%s' @ %s (softAP %s)",
+              AP_SSID, WiFi.softAPIP().toString().c_str(),
+              ok ? "ok" : "FAILED");
     startCaptiveDns();
 }
 
@@ -124,7 +125,7 @@ void startMdnsIfNeeded() {
     if (MDNS.begin(settings.hostname)) {
         MDNS.addService("http", "tcp", WEB_PORT);
         mdnsStarted = true;
-        Serial.printf("[WiFi] mDNS at %s.local\n", settings.hostname);
+        Log::info("WiFi mDNS at %s.local", settings.hostname);
     }
 }
 
@@ -181,14 +182,14 @@ void loop() {
     if (now - lastReconnectAttemptMs < WIFI_RECONNECT_INTERVAL_SEC * 1000UL) return;
     lastReconnectAttemptMs = now;
 
-    Serial.println("[WiFi] STA disconnected, retrying...");
+    Log::warn("WiFi STA disconnected, retrying...");
     WiFi.reconnect();
     delay(500);
     if (WiFi.status() != WL_CONNECTED) {
         failedAttempts++;
         if (failedAttempts >= WIFI_MAX_FAILED_ATTEMPTS &&
             currentMode != Mode::AP_STA) {
-            Serial.println("[WiFi] Too many failures, raising recovery AP");
+            Log::warn("WiFi too many failures, raising recovery AP");
             WiFi.mode(WIFI_AP_STA);
             startRecoveryAp();
             currentMode = Mode::AP_STA;
@@ -201,9 +202,9 @@ bool isConnected() { return WiFi.status() == WL_CONNECTED; }
 Mode mode() { return currentMode; }
 
 bool provision(const char *ssid, const char *password) {
-    Serial.printf("[WiFi] Provisioning '%s'\n", ssid);
+    Log::info("WiFi provisioning '%s'", ssid);
     if (!saveCreds(ssid, password)) {
-        Serial.println("[WiFi] Failed to write wifi.json");
+        Log::error("WiFi failed to save credentials");
         return false;
     }
     stopCaptiveDns();
@@ -219,13 +220,13 @@ bool provision(const char *ssid, const char *password) {
             currentMode = Mode::STATION;
             failedAttempts = 0;
             startMdnsIfNeeded();
-            Serial.printf("[WiFi] Provisioned, IP=%s\n",
-                          WiFi.localIP().toString().c_str());
+            Log::info("WiFi provisioned, IP=%s",
+                      WiFi.localIP().toString().c_str());
             return true;
         }
         delay(200);
     }
-    Serial.println("[WiFi] Provisioning failed, AP stays up");
+    Log::warn("WiFi provisioning failed, AP stays up");
     WiFi.mode(WIFI_AP);
     startRecoveryAp();
     startMdnsIfNeeded();
