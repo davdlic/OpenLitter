@@ -11,7 +11,7 @@
 #include <WiFi.h>
 #include <ESPmDNS.h>
 #include <DNSServer.h>
-#include <LittleFS.h>
+#include <Preferences.h>
 
 namespace WiFiManager {
 
@@ -37,31 +37,22 @@ bool      dnsStarted = false;
 constexpr uint16_t DNS_PORT = 53;
 
 bool loadCreds() {
-    if (!LittleFS.exists(FS_WIFI_CONFIG)) return false;
-    File f = LittleFS.open(FS_WIFI_CONFIG, "r");
-    if (!f) return false;
-    JsonDocument doc;
-    DeserializationError err = deserializeJson(doc, f);
-    f.close();
-    if (err) {
-        Serial.printf("[WiFi] wifi.json parse error: %s\n", err.c_str());
-        return false;
-    }
-    creds.ssid = (const char *)(doc["ssid"] | "");
-    creds.password = (const char *)(doc["password"] | "");
+    Preferences prefs;
+    if (!prefs.begin(NVS_NAMESPACE, /*readOnly=*/true)) return false;
+    creds.ssid     = prefs.getString(NVS_KEY_WIFI_SSID, "");
+    creds.password = prefs.getString(NVS_KEY_WIFI_PASS, "");
+    prefs.end();
     return creds.ssid.length() > 0;
 }
 
 bool saveCreds(const char *ssid, const char *password) {
-    JsonDocument doc;
-    doc["ssid"] = ssid;
-    doc["password"] = password;
-    File f = LittleFS.open(FS_WIFI_CONFIG, "w");
-    if (!f) return false;
-    serializeJson(doc, f);
-    f.close();
-    creds.ssid = ssid;
-    creds.password = password;
+    Preferences prefs;
+    if (!prefs.begin(NVS_NAMESPACE, /*readOnly=*/false)) return false;
+    prefs.putString(NVS_KEY_WIFI_SSID, ssid ? ssid : "");
+    prefs.putString(NVS_KEY_WIFI_PASS, password ? password : "");
+    prefs.end();
+    creds.ssid = ssid ? ssid : "";
+    creds.password = password ? password : "";
     return true;
 }
 
