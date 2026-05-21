@@ -543,13 +543,23 @@
 
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
+    // When a freshly-installed SW activates (after a filesystem OTA
+    // update, for example), reload so we run the new assets instead of
+    // whatever was in the previous cache generation.
+    let swReloaded = false;
+    navigator.serviceWorker.addEventListener('message', (e) => {
+      if (e.data && e.data.type === 'sw-updated' && !swReloaded) {
+        swReloaded = true;
+        location.reload();
+      }
+    });
   }
 
   // ---------- Install banner ----------
-  // - Chromium browsers: capture beforeinstallprompt and show our own button
-  //   instead of the default mini-infobar.
-  // - iOS Safari: no install API exists, so show a hint pointing the user to
-  //   the Share menu (Apple does not allow programmatic prompts).
+  // Only shown on mobile-sized viewports. Desktop users can still install
+  // via the browser address bar (Chrome/Edge) — no need for a popup.
+  // Once dismissed in a session, never re-shows in that session, even if
+  // localStorage isn't writable (incognito, restricted modes).
   (function setupInstall() {
     const banner = $('#install-banner');
     if (!banner) return;
@@ -558,13 +568,10 @@
     const close   = $('#install-close');
     const DISMISS_KEY = 'openlitter-install-dismissed';
 
-    const ua = navigator.userAgent || '';
-    // iPadOS 13+ reports as "Macintosh" in UA, so detect via touch capability too.
-    const isIOS = (/iPad|iPhone|iPod/.test(ua) ||
-                   (ua.includes('Mac') && 'ontouchend' in document)) &&
-                  !window.MSStream;
+    let dismissedSession = false;
+    let deferredPrompt   = null;
 
-    function detectStandalone() {
+    function isStandalone() {
       try {
         if (window.matchMedia('(display-mode: standalone)').matches) return true;
         if (window.matchMedia('(display-mode: fullscreen)').matches) return true;
@@ -575,37 +582,62 @@
       return false;
     }
 
-    function dismissed() {
+    function dismissedPersistent() {
       try { return !!localStorage.getItem(DISMISS_KEY); } catch (e) { return false; }
     }
 
-    function hideBanner() {
+    function isMobileViewport() {
+      return window.innerWidth < 768;
+    }
+
+    function isIOSMobile() {
+      const ua = navigator.userAgent || '';
+      if (window.MSStream) return false;
+      if (/iPad|iPhone|iPod/.test(ua)) return true;
+      // iPadOS 13+ reports as "Macintosh" in UA. Only count if there's touch
+      // AND we're on a mobile-shaped viewport to avoid catching Mac laptops.
+      if (ua.includes('Mac') && 'ontouchend' in document && isMobileViewport()) return true;
+      return false;
+    }
+
+    function shouldShow() {
+      if (dismissedSession) return false;
+      if (dismissedPersistent()) return false;
+      if (isStandalone()) return false;
+      if (!isMobileViewport()) return false;
+      return true;
+    }
+
+    function hideForever() {
+      dismissedSession = true;
       banner.hidden = true;
-    }
-
-    function maybeShow() {
-      if (detectStandalone() || dismissed()) { hideBanner(); return; }
-      if (isIOS) {
-        hint.innerHTML = 'Tap <span class="ios-share">⎘</span> then "Add to Home Screen"';
-        action.hidden = true;
-        banner.hidden = false;
-      }
-      // Chromium path is gated on beforeinstallprompt below.
-    }
-
-    close.addEventListener('click', () => {
-      hideBanner();
       try { localStorage.setItem(DISMISS_KEY, '1'); } catch (e) {}
-    });
+    }
 
-    let deferredPrompt = null;
-    window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      deferredPrompt = e;
-      if (detectStandalone() || dismissed()) return;
+    function showIOSHint() {
+      hint.innerHTML = 'Tap <span class="ios-share">⎘</span> then "Add to Home Screen"';
+      action.hidden = true;
+      banner.hidden = false;
+    }
+
+    function showChromiumPrompt() {
       hint.textContent = 'Add to your home screen for an app-like experience';
       action.hidden = false;
       banner.hidden = false;
+    }
+
+    function maybeShowIOS() {
+      if (!shouldShow()) { banner.hidden = true; return; }
+      if (isIOSMobile()) showIOSHint();
+    }
+
+    close.addEventListener('click', hideForever);
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      if (!shouldShow()) return;
+      showChromiumPrompt();
     });
 
     action.addEventListener('click', async () => {
@@ -613,26 +645,21 @@
       deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
       deferredPrompt = null;
-      action.hidden = true;
-      if (outcome === 'accepted') hideBanner();
+      hideForever();
+      if (outcome !== 'accepted') {
+        // User cancelled the OS prompt — still treat as "don't pester me".
+      }
     });
 
-    window.addEventListener('appinstalled', () => {
-      hideBanner();
-      deferredPrompt = null;
-      try { localStorage.setItem(DISMISS_KEY, '1'); } catch (e) {}
-    });
+    window.addEventListener('appinstalled', hideForever);
 
-    // Initial decision + safety nets:
-    //  - pageshow fires when restored from bfcache, common on iOS PWAs.
-    //  - visibilitychange catches when the user re-opens the standalone app.
-    //  - delayed re-check handles iOS quirks where display-mode reports
-    //    non-standalone on first paint then flips after the runtime kicks in.
-    maybeShow();
-    window.addEventListener('pageshow', maybeShow);
+    // Initial decision + safety nets for iOS (where display-mode can flip
+    // late) and bfcache restores. Chromium path waits for beforeinstallprompt.
+    maybeShowIOS();
+    window.addEventListener('pageshow', maybeShowIOS);
     document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) maybeShow();
+      if (!document.hidden) maybeShowIOS();
     });
-    setTimeout(maybeShow, 800);
+    setTimeout(maybeShowIOS, 800);
   })();
 })();

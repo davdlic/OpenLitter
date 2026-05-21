@@ -4,7 +4,7 @@
  * Licensed under the GNU General Public License v3.0 - see LICENSE.
  */
 
-const CACHE = 'openlitter-v6';
+const CACHE = 'openlitter-v8';
 const ASSETS = [
   '/',
   '/index.html',
@@ -27,7 +27,8 @@ self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys =>
       Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
-    )
+    ).then(() => self.clients.matchAll({ type: 'window' }))
+      .then(clients => clients.forEach(c => c.postMessage({ type: 'sw-updated' })))
   );
   self.clients.claim();
 });

@@ -390,6 +390,11 @@ main {
 }
 
 /* ---------- Install banner ---------- */
+/* `display: flex` below overrides the UA `[hidden]` rule, so the banner
+ * would stay visible even when JS sets `banner.hidden = true`. Force it
+ * back with a higher-specificity selector. */
+.install-banner[hidden] { display: none !important; }
+
 .install-banner {
   position: fixed;
   left: 0.75rem;
