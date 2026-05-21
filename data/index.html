@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<!--
+  OpenLitter - Open Source ESP32 Firmware for Litter Robot 1, 2 & 3
+  Copyright (C) 2024 David Lopes (https://github.com/davdlic)
+  Licensed under the GNU General Public License v3.0 - see LICENSE.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f1020" />
+  <title>OpenLitter</title>
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+  <link rel="apple-touch-icon" href="/icon.svg" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo-dot"></span>
+      <span>OpenLitter</span>
+    </div>
+    <nav class="tabs" id="tabs">
+      <button class="tab active" data-tab="dashboard">Dashboard</button>
+      <button class="tab" data-tab="settings">Settings</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- ====================== DASHBOARD ====================== -->
+    <section id="view-dashboard" class="view active">
+      <div class="card hero">
+        <div class="globe" id="globe">
+          <div class="globe-ring"></div>
+          <div class="globe-inner"></div>
+        </div>
+        <div class="hero-info">
+          <div class="state-badge" id="state-badge">IDLE</div>
+          <div class="muted small" id="state-detail">Waiting for cat</div>
+          <div class="error-banner" id="error-banner" hidden></div>
+        </div>
+      </div>
+
+      <div class="card grid-2">
+        <div class="metric">
+          <div class="metric-label">Cat present</div>
+          <div class="metric-value" id="m-cat">—</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Weight</div>
+          <div class="metric-value" id="m-weight">—</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Cycles</div>
+          <div class="metric-value" id="m-cycles">0</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Last cycle</div>
+          <div class="metric-value" id="m-last">—</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Controls</h3>
+        <div class="btn-grid">
+          <button class="btn primary" data-cmd="cycle">Start cycle</button>
+          <button class="btn" data-cmd="empty">Empty</button>
+          <button class="btn" data-cmd="reset">Reset</button>
+          <button class="btn" data-cmd="pause">Pause</button>
+          <button class="btn" data-cmd="resume">Resume</button>
+          <button class="btn" data-cmd="tare" id="btn-tare" hidden>Tare</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Recent cycles</h3>
+        <ul class="history" id="history"></ul>
+      </div>
+
+      <div class="card footer-card">
+        <div class="row">
+          <span class="muted">WiFi</span>
+          <span id="net-summary">—</span>
+        </div>
+        <div class="row">
+          <span class="muted">MQTT</span>
+          <span id="mqtt-summary">—</span>
+        </div>
+        <div class="row">
+          <span class="muted">Uptime</span>
+          <span id="uptime">—</span>
+        </div>
+        <div class="row">
+          <span class="muted">Version</span>
+          <span id="version">—</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================== SETTINGS ====================== -->
+    <section id="view-settings" class="view">
+      <div class="card">
+        <nav class="subtabs" id="subtabs">
+          <button class="subtab active" data-sub="network">Network</button>
+          <button class="subtab" data-sub="timing">Timing</button>
+          <button class="subtab" data-sub="hardware">Hardware</button>
+          <button class="subtab" data-sub="sensors">Sensors</button>
+          <button class="subtab" data-sub="mqtt">MQTT</button>
+          <button class="subtab" data-sub="system">System</button>
+        </nav>
+      </div>
+
+      <!-- Network -->
+      <div class="card sub" data-sub="network">
+        <h3>Network</h3>
+        <div class="row"><span class="muted">Status</span><span id="net-status">—</span></div>
+        <div class="row"><span class="muted">SSID</span><span id="net-ssid">—</span></div>
+        <div class="row"><span class="muted">IP</span><span id="net-ip">—</span></div>
+        <div class="row"><span class="muted">Gateway</span><span id="net-gw">—</span></div>
+        <div class="row"><span class="muted">RSSI</span><span id="net-rssi">—</span></div>
+
+        <h4>Reconfigure WiFi</h4>
+        <div class="btn-grid">
+          <button class="btn" id="btn-scan">Scan networks</button>
+          <button class="btn" id="btn-launch-ap">Launch Setup AP</button>
+        </div>
+        <ul class="scan-list" id="scan-list"></ul>
+        <label>SSID <input id="prov-ssid" type="text" placeholder="WiFi name" /></label>
+        <label>Password <input id="prov-pwd" type="password" placeholder="••••••••" /></label>
+        <button class="btn primary" id="btn-provision">Save & connect</button>
+
+        <h4>Advanced</h4>
+        <label>Hostname <input data-cfg="hostname" type="text" /></label>
+        <label class="row"><span>Static IP</span><input data-cfg="use_static_ip" type="checkbox" /></label>
+        <label>IP <input data-cfg="static_ip" type="text" /></label>
+        <label>Gateway <input data-cfg="static_gateway" type="text" /></label>
+        <label>Subnet <input data-cfg="static_subnet" type="text" /></label>
+        <label>Recovery AP password <input data-cfg="ap_password" type="text" /></label>
+      </div>
+
+      <!-- Timing -->
+      <div class="card sub" data-sub="timing" hidden>
+        <h3>Timing</h3>
+        <label>Wait after cat leaves (min) <input data-cfg="wait_after_cat_min" type="number" min="0" max="60" /></label>
+        <label>Cat fallback timeout (min) <input data-cfg="cat_timeout_min" type="number" min="1" max="60" /></label>
+        <label>Cycle watchdog (sec) <input data-cfg="cycle_timeout_sec" type="number" min="30" max="600" /></label>
+        <label>Anti-pinch reverse (ms) <input data-cfg="anti_pinch_reverse_ms" type="number" min="0" max="10000" /></label>
+      </div>
+
+      <!-- Hardware -->
+      <div class="card sub" data-sub="hardware" hidden>
+        <h3>Hardware</h3>
+        <h4>Motor (L298N)</h4>
+        <label>IN1 pin <input data-cfg="motor_in1_pin" type="number" /></label>
+        <label>IN2 pin <input data-cfg="motor_in2_pin" type="number" /></label>
+        <label>EN pin (-1 to disable PWM) <input data-cfg="motor_en_pin" type="number" /></label>
+        <label>Speed (0-255) <input data-cfg="motor_speed" type="range" min="0" max="255" /><output id="out-speed"></output></label>
+
+        <h4>Hall sensors</h4>
+        <label>HOME pin <input data-cfg="hall_home_pin" type="number" /></label>
+        <label>DUMP pin <input data-cfg="hall_dump_pin" type="number" /></label>
+        <label class="row"><span>Active LOW</span><input data-cfg="hall_active_low" type="checkbox" /></label>
+
+        <h4>Cat micro switch</h4>
+        <label>Pin <input data-cfg="cat_sensor_pin" type="number" /></label>
+        <label>Type
+          <select data-cfg="cat_sensor_type">
+            <option value="0">NC (Normally Closed)</option>
+            <option value="1">NO (Normally Open)</option>
+          </select>
+        </label>
+        <label>Debounce (ms) <input data-cfg="cat_sensor_debounce_ms" type="number" min="0" max="500" /></label>
+      </div>
+
+      <!-- Sensors -->
+      <div class="card sub" data-sub="sensors" hidden>
+        <h3>Sensors</h3>
+        <h4>Weight (HX711)</h4>
+        <label class="row"><span>Enabled</span><input data-cfg="weight_enabled" type="checkbox" /></label>
+        <label>Capacity per cell (kg)
+          <select data-cfg="weight_capacity_kg">
+            <option value="20">20 kg</option>
+            <option value="50">50 kg</option>
+          </select>
+        </label>
+        <label>DOUT pin <input data-cfg="weight_dout_pin" type="number" /></label>
+        <label>SCK pin <input data-cfg="weight_sck_pin" type="number" /></label>
+        <label>Cat threshold (kg) <input data-cfg="weight_threshold_kg" type="number" step="0.1" min="0" max="20" /></label>
+        <label class="row"><span>Auto-tare on boot</span><input data-cfg="weight_tare_on_boot" type="checkbox" /></label>
+        <div class="row"><span class="muted">Live weight</span><span id="live-weight">—</span></div>
+        <button class="btn" data-cmd="tare">Tare now</button>
+
+        <h4>Presence (HLK-LD2410C)</h4>
+        <label class="row"><span>Enabled</span><input data-cfg="presence_enabled" type="checkbox" /></label>
+        <label>RX pin <input data-cfg="presence_rx_pin" type="number" /></label>
+        <label>TX pin <input data-cfg="presence_tx_pin" type="number" /></label>
+      </div>
+
+      <!-- MQTT -->
+      <div class="card sub" data-sub="mqtt" hidden>
+        <h3>MQTT</h3>
+        <label class="row"><span>Enabled</span><input data-cfg="mqtt_enabled" type="checkbox" /></label>
+        <label>Broker <input data-cfg="mqtt_broker" type="text" placeholder="192.168.1.100" /></label>
+        <label>Port <input data-cfg="mqtt_port" type="number" min="1" max="65535" /></label>
+        <label>Username <input data-cfg="mqtt_user" type="text" /></label>
+        <label>Password <input data-cfg="mqtt_password" type="password" /></label>
+        <label>Topic base <input data-cfg="mqtt_topic_base" type="text" /></label>
+        <label class="row"><span>Home Assistant discovery</span><input data-cfg="mqtt_ha_discovery" type="checkbox" /></label>
+        <div class="row"><span class="muted">Status</span><span id="mqtt-status">—</span></div>
+      </div>
+
+      <!-- System -->
+      <div class="card sub" data-sub="system" hidden>
+        <h3>System</h3>
+        <label class="row"><span>OTA enabled</span><input data-cfg="ota_enabled" type="checkbox" /></label>
+        <label>OTA password <input data-cfg="ota_password" type="text" /></label>
+        <label>History size <input data-cfg="history_max_entries" type="number" min="1" max="100" /></label>
+
+        <div class="btn-grid">
+          <button class="btn" id="btn-clear-history">Clear history</button>
+          <button class="btn" id="btn-restart">Restart ESP32</button>
+          <button class="btn danger" id="btn-factory">Factory reset</button>
+          <button class="btn" id="btn-export">Export config</button>
+          <label class="btn file-btn">
+            Import config<input type="file" id="file-import" accept="application/json" hidden />
+          </label>
+        </div>
+
+        <div class="row"><span class="muted">Firmware</span><span id="sys-version">—</span></div>
+        <div class="row"><span class="muted">Hostname</span><span id="sys-hostname">—</span></div>
+        <div class="row"><span class="muted">Uptime</span><span id="sys-uptime">—</span></div>
+      </div>
+
+      <div class="save-bar">
+        <span id="save-msg" class="muted small"></span>
+        <button class="btn primary" id="btn-save">Save</button>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,60 @@
+name: Feature request
+description: Suggest a new feature or enhancement
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for thinking about how to make OpenLitter better!
+
+        **Before submitting:** search [existing issues](https://github.com/davdlic/OpenLitter/issues?q=is%3Aissue) and [discussions](https://github.com/davdlic/OpenLitter/discussions) to avoid duplicates.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the use case or pain point. Avoid jumping to solutions in this field.
+      placeholder: |
+        e.g. "I have two cats with very different weights and I'd like the cycle to start
+        only after the heavier one used the box, not the lighter one."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How could OpenLitter solve it? UI changes, new MQTT topics, new sensors, etc.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches you've thought about, and why this one is best.
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Affects
+      multiple: true
+      options:
+        - Firmware (state machine / sensors / motor)
+        - Web UI / PWA
+        - MQTT / Home Assistant
+        - WiFi / network
+        - OTA / updates
+        - Documentation
+        - Hardware / wiring
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      options:
+        - label: I'm willing to help implement this
+        - label: I'm willing to test this on real hardware

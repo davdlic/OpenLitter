@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Discussions
+    url: https://github.com/davdlic/OpenLitter/discussions
+    about: Questions, ideas and show & tell go in Discussions, not Issues.
+  - name: Hardware help
+    url: https://github.com/davdlic/OpenLitter/blob/main/docs/wiring_diagram.md
+    about: Wiring help and pin map reference.

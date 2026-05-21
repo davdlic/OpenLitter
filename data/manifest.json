@@ -1,0 +1,19 @@
+{
+  "name": "OpenLitter",
+  "short_name": "OpenLitter",
+  "description": "Open source ESP32 firmware for Litter Robot 1/2/3",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f1020",
+  "theme_color": "#0f1020",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
