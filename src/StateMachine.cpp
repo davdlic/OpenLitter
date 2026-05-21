@@ -313,7 +313,19 @@ void handlePaused() {
 void begin() {
     bootMillis = millis();
     loadHistory();
-    Serial.println("[State] Initialised in IDLE");
+    if (Sensors::isHomePosition()) {
+        Serial.println("[State] Initialised in IDLE (globe at HOME)");
+        return;
+    }
+    // Globe is not at HOME on boot — could be a power cut mid-cycle, manual
+    // repositioning, or first install. Drive CW into RESETTING; the existing
+    // handleResetting() takes it the rest of the way and transitions to IDLE
+    // once the HOME sensor latches. Motion watchdog applies as usual.
+    Serial.println("[State] Boot: globe not at HOME, returning to HOME");
+    Motor::cw(settings.motorSpeed);
+    cycleStartMs = millis();
+    lastMotionProgressMs = cycleStartMs;
+    transition(State::RESETTING);
 }
 
 void loop() {
