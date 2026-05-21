@@ -9,7 +9,7 @@ Licensed under the GNU General Public License v3.0 - see LICENSE
 OpenLitter integrates with Home Assistant in two ways:
 
 1. **MQTT (available today)** — fully self-contained: the ESP32 publishes its state to your broker and HA discovers the entities automatically.
-2. **HACS custom integration (Phase 2, planned)** — a dedicated `custom_components/openlitter` integration plus a Lovelace card with the rotating-globe animation. Roadmap below.
+2. **HACS custom integration** (pre-1.0) — the [davdlic/OpenLitter-HA](https://github.com/davdlic/OpenLitter-HA) repo. Adds richer entities (full history, raw HOME/DUMP sensors, firmware-update entity that flashes via `/api/update`) plus a Lovelace card with the rotating-globe animation.
 
 ---
 
@@ -135,46 +135,36 @@ mqtt:
 
 ---
 
-## Option 2 — HACS custom integration (Phase 2, planned)
+## Option 2 — HACS custom integration
 
-This is on the roadmap and **not yet released**. The plan:
+Pre-1.0 — lives at [github.com/davdlic/OpenLitter-HA](https://github.com/davdlic/OpenLitter-HA). Gives you richer entities than the MQTT auto-discovery flow plus a Lovelace card, and works even without an MQTT broker.
 
-### `custom_components/openlitter`
+### What it adds
 
-- Auto-discovers OpenLitter on the LAN via mDNS (`_http._tcp` advertising hostname `openlitter`).
-- Talks to the device over MQTT or REST (configurable in the config flow).
-- Creates the same entities as the MQTT discovery flow, plus richer attributes (full `history` array on the state sensor).
+- **Local push** via REST + WebSocket on `/ws` — no broker required. If you have HA's MQTT integration configured, the integration also subscribes to the same topics for redundancy.
+- **Auto-discovery** via mDNS — the device is offered to you in HA's Discovered panel.
+- **Richer entities** than MQTT discovery alone:
+  - `sensor.openlitter_state` with friendly label + raw enum + full `history` array as an attribute.
+  - `binary_sensor.openlitter_home_position` and `binary_sensor.openlitter_dump_position` — live state of the magnet sensors (handy for diagnosing wiring without USB serial).
+  - `update.openlitter_firmware` — HA's native update card; polls GitHub for new firmware releases and installs via `/api/update` on the device, no PC needed.
+- **Lovelace card** (`custom:openlitter-card`) with the rotating-globe animation, state badge, sensor pills, and command buttons.
 
-### `www/openlitter-card.js`
+### Installation
 
-- Custom Lovelace card.
-- Rotating-globe SVG animation that mirrors the Web UI.
-- Inline last-cycle history.
-- Buttons for cycle / empty / reset / pause / resume.
-- Compatible with `mushroom-card`-style theming.
+1. **HACS → Integrations → ⋮ → Custom repositories**
+2. Repository: `https://github.com/davdlic/OpenLitter-HA`, Category: **Integration**
+3. Install **OpenLitter**, restart Home Assistant.
+4. Either accept the auto-discovery toast, or **Settings → Devices & Services → Add Integration → OpenLitter** and enter the host (`openlitter.local` or the device's IP).
 
-### Future repository layout
+For the Lovelace card:
 
-```
-openlitter-ha/
-├── custom_components/
-│   └── openlitter/
-│       ├── __init__.py
-│       ├── manifest.json
-│       ├── config_flow.py
-│       ├── sensor.py
-│       ├── binary_sensor.py
-│       ├── button.py
-│       └── coordinator.py
-└── www/
-    └── openlitter-card.js
+1. **Settings → Dashboards → ⋮ → Resources → Add resource**
+2. URL: `/hacsfiles/openlitter-ha/openlitter-card.js`, Type: **JavaScript Module**
+3. Use it in any dashboard:
+
+```yaml
+type: custom:openlitter-card
+entity: sensor.openlitter_state
 ```
 
-### Installation (once released)
-
-1. Add `https://github.com/davdlic/openlitter-ha` as a custom HACS repository.
-2. Install **OpenLitter** from HACS.
-3. Restart Home Assistant.
-4. Settings → Devices & Services → **Add integration** → "OpenLitter". The device should be auto-discovered.
-
-Watch the GitHub issues for progress, or jump in to help — see [CONTRIBUTING.md](../CONTRIBUTING.md).
+The card pulls weight, buttons, sensor pills, and history automatically from the rest of the device's entities.

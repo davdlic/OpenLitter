@@ -162,15 +162,15 @@ See [docs/sensors.md](docs/sensors.md) for installation details (load cell place
 
 OpenLitter integrates with Home Assistant in two ways:
 
-1. **MQTT (available today)** — enable MQTT in the Web UI and turn on HA auto-discovery. Entities show up automatically: state sensor, weight sensor, cat-present binary sensor, cycle/empty/reset/pause buttons.
-2. **HACS custom integration (planned, Phase 2)** — a dedicated `custom_components/openlitter` integration plus a Lovelace card with the rotating globe animation. See [docs/home_assistant.md](docs/home_assistant.md) for the roadmap.
+1. **MQTT** — enable MQTT in the Web UI and turn on HA auto-discovery. Entities show up automatically: state sensor, weight sensor, cat-present binary sensor, cycle/empty/reset/pause buttons.
+2. **HACS custom integration** — pre-1.0, lives at [davdlic/OpenLitter-HA](https://github.com/davdlic/OpenLitter-HA). Adds richer entities (full history, raw HOME/DUMP/CAT sensors, firmware-update entity that flashes via `/api/update`) plus a Lovelace card with rotating-globe animation. See [docs/home_assistant.md](docs/home_assistant.md) for setup.
 
 ---
 
 ## Roadmap
 
 - **Phase 1 — Firmware** ✅ this repository
-- **Phase 2 — HACS integration** — `openlitter-ha` repo with custom integration + Lovelace card
+- **Phase 2 — HACS integration** — first skeleton at [davdlic/OpenLitter-HA](https://github.com/davdlic/OpenLitter-HA), pre-1.0
 - **Phase 3 — Advanced PWA** — push notifications, local history graphs
 - **Phase 4 — Custom PCB** — drop-in board replacing the L298N + ESP32 wiring
 
