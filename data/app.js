@@ -366,24 +366,38 @@
     const isIOS = (/iPad|iPhone|iPod/.test(ua) ||
                    (ua.includes('Mac') && 'ontouchend' in document)) &&
                   !window.MSStream;
-    const isStandalone =
-      window.matchMedia('(display-mode: standalone)').matches ||
-      window.navigator.standalone === true;
-    const dismissed = (() => {
-      try { return !!localStorage.getItem(DISMISS_KEY); } catch (e) { return false; }
-    })();
 
-    function show(reason) {
-      if (isStandalone || dismissed) return;
-      if (reason === 'ios') {
+    function detectStandalone() {
+      try {
+        if (window.matchMedia('(display-mode: standalone)').matches) return true;
+        if (window.matchMedia('(display-mode: fullscreen)').matches) return true;
+        if (window.matchMedia('(display-mode: minimal-ui)').matches) return true;
+      } catch (e) {}
+      if (window.navigator.standalone === true) return true;
+      if (document.referrer && document.referrer.startsWith('android-app://')) return true;
+      return false;
+    }
+
+    function dismissed() {
+      try { return !!localStorage.getItem(DISMISS_KEY); } catch (e) { return false; }
+    }
+
+    function hideBanner() {
+      banner.hidden = true;
+    }
+
+    function maybeShow() {
+      if (detectStandalone() || dismissed()) { hideBanner(); return; }
+      if (isIOS) {
         hint.innerHTML = 'Tap <span class="ios-share">⎘</span> then "Add to Home Screen"';
         action.hidden = true;
+        banner.hidden = false;
       }
-      banner.hidden = false;
+      // Chromium path is gated on beforeinstallprompt below.
     }
 
     close.addEventListener('click', () => {
-      banner.hidden = true;
+      hideBanner();
       try { localStorage.setItem(DISMISS_KEY, '1'); } catch (e) {}
     });
 
@@ -391,9 +405,10 @@
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       deferredPrompt = e;
+      if (detectStandalone() || dismissed()) return;
       hint.textContent = 'Add to your home screen for an app-like experience';
       action.hidden = false;
-      if (!isStandalone && !dismissed) banner.hidden = false;
+      banner.hidden = false;
     });
 
     action.addEventListener('click', async () => {
@@ -402,17 +417,25 @@
       const { outcome } = await deferredPrompt.userChoice;
       deferredPrompt = null;
       action.hidden = true;
-      if (outcome === 'accepted') banner.hidden = true;
+      if (outcome === 'accepted') hideBanner();
     });
 
     window.addEventListener('appinstalled', () => {
-      banner.hidden = true;
+      hideBanner();
       deferredPrompt = null;
+      try { localStorage.setItem(DISMISS_KEY, '1'); } catch (e) {}
     });
 
-    if (isIOS && !isStandalone) {
-      // iOS will never fire beforeinstallprompt; show the hint right away.
-      show('ios');
-    }
+    // Initial decision + safety nets:
+    //  - pageshow fires when restored from bfcache, common on iOS PWAs.
+    //  - visibilitychange catches when the user re-opens the standalone app.
+    //  - delayed re-check handles iOS quirks where display-mode reports
+    //    non-standalone on first paint then flips after the runtime kicks in.
+    maybeShow();
+    window.addEventListener('pageshow', maybeShow);
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) maybeShow();
+    });
+    setTimeout(maybeShow, 800);
   })();
 })();

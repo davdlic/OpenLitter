@@ -118,9 +118,13 @@ void stopCaptiveDns() {
 
 void startRecoveryAp() {
     Serial.println("[WiFi] Starting recovery AP");
+    // ESP32 Arduino 3.x: softAP() must be called BEFORE softAPConfig() —
+    // otherwise the DHCP server isn't always reconfigured to the new range.
+    bool ok = WiFi.softAP(AP_SSID, settings.apPassword);
     WiFi.softAPConfig(AP_IP, AP_IP, IPAddress(255, 255, 255, 0));
-    WiFi.softAP(AP_SSID, settings.apPassword);
-    Serial.printf("[WiFi] AP '%s' @ %s\n", AP_SSID, WiFi.softAPIP().toString().c_str());
+    Serial.printf("[WiFi] AP '%s' @ %s (softAP %s)\n",
+                  AP_SSID, WiFi.softAPIP().toString().c_str(),
+                  ok ? "ok" : "FAILED");
     startCaptiveDns();
 }
 

@@ -43,7 +43,12 @@ main {
   z-index: 5;
   background: var(--bg);
   border-bottom: 1px solid var(--border);
-  padding: 0.75rem 1rem 0;
+  /* Respect iOS standalone status bar (translucent). Without this the
+   * page content slides under the clock and signal indicators. */
+  padding-top: max(0.75rem, env(safe-area-inset-top));
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+  padding-bottom: 0;
 }
 
 .brand {
@@ -350,6 +355,7 @@ main {
   justify-content: space-between;
   align-items: center;
   padding: 0.75rem 1rem;
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
   background: rgba(15, 16, 32, 0.95);
   border-top: 1px solid var(--border);
   backdrop-filter: blur(8px);
@@ -388,7 +394,9 @@ main {
   position: fixed;
   left: 0.75rem;
   right: 0.75rem;
-  bottom: 5.25rem;             /* sits above the save bar */
+  /* Sit above the save bar, with extra room for the iOS home-indicator
+   * safe area on standalone mode. */
+  bottom: calc(5.25rem + env(safe-area-inset-bottom));
   display: flex;
   align-items: center;
   gap: 0.6rem;
