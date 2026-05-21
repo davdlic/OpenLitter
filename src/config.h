@@ -52,7 +52,7 @@
 #define CAT_SENSOR_NO           1   // Normally Open
 
 #define CAT_SENSOR_PIN          16
-#define CAT_SENSOR_TYPE         CAT_SENSOR_NC
+#define CAT_SENSOR_TYPE         CAT_SENSOR_NO
 #define CAT_SENSOR_DEBOUNCE_MS  50
 
 // --- TIMING ---
