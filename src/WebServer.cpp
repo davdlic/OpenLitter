@@ -130,6 +130,10 @@ void registerRoutes() {
         bool ok = StateMachine::requestReset();
         ok ? sendOk(req) : sendErr(req, 409, "Cannot reset from current state");
     });
+    server.on("/api/home",   HTTP_POST, [](AsyncWebServerRequest *req) {
+        bool ok = StateMachine::requestHome();
+        ok ? sendOk(req) : sendErr(req, 409, "Already at home");
+    });
     server.on("/api/pause",  HTTP_POST, [](AsyncWebServerRequest *req) {
         bool ok = StateMachine::requestPause();
         ok ? sendOk(req) : sendErr(req, 409, "Not in motion");

@@ -28,7 +28,7 @@
 #include <Arduino.h>
 
 // --- FIRMWARE METADATA ---
-#define OPENLITTER_VERSION  "0.3.0"
+#define OPENLITTER_VERSION  "0.4.0"
 
 // --- MOTOR PINS (L298N) ---
 // Every pin is also editable from Settings -> Hardware at runtime.

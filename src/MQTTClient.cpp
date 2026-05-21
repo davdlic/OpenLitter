@@ -42,6 +42,7 @@ void onMessage(char *topic, byte *payload, unsigned int length) {
     if (t.endsWith("/command/cycle"))   StateMachine::requestCycle();
     else if (t.endsWith("/command/empty"))  StateMachine::requestEmpty();
     else if (t.endsWith("/command/reset"))  StateMachine::requestReset();
+    else if (t.endsWith("/command/home"))   StateMachine::requestHome();
     else if (t.endsWith("/command/pause"))  StateMachine::requestPause();
     else if (t.endsWith("/command/resume")) StateMachine::requestResume();
     else if (t.endsWith("/command/tare"))   Sensors::tareWeight();
@@ -116,6 +117,7 @@ void publishHaDiscovery() {
         {"cycle",  "OpenLitter Cycle",  "command/cycle"},
         {"empty",  "OpenLitter Empty",  "command/empty"},
         {"reset",  "OpenLitter Reset",  "command/reset"},
+        {"home",   "OpenLitter Home",   "command/home"},
         {"pause",  "OpenLitter Pause",  "command/pause"},
         {"resume", "OpenLitter Resume", "command/resume"},
     };

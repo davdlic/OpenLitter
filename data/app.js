@@ -319,6 +319,7 @@
       cycle: '/api/cycle',
       empty: '/api/empty',
       reset: '/api/reset',
+      home:  '/api/home',
       pause: '/api/pause',
       resume:'/api/resume',
       tare:  '/api/tare',

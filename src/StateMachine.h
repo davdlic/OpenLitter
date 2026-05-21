@@ -49,6 +49,7 @@ bool requestEmpty();
 bool requestReset();
 bool requestPause();
 bool requestResume();
+bool requestHome();  // shortcut: stop current motion and drive CW directly to HOME (skips the dump phase, still runs the sand shake)
 
 uint32_t cycleCount();
 uint32_t lastCycleTimestamp();

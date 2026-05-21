@@ -547,6 +547,31 @@ bool requestReset() {
     return false;
 }
 
+bool requestHome() {
+    // Quick return to HOME — skips the cycle's CCW + dump-pause path, but
+    // still runs the sand-shake on arrival so the litter ends levelled.
+    // Available from any non-IDLE state.
+    if (currentState == State::IDLE) return false;
+    Motor::stop();
+    currentError = "";
+    resetInProgress = true;
+    uint32_t now = millis();
+    cycleBeginMs = now;
+    cycleStartMs = now;
+    lastMotionProgressMs = now;
+    if (Sensors::isHomePosition()) {
+        // Already at HOME, no motion required.
+        resetInProgress = false;
+        transition(State::IDLE);
+        return true;
+    }
+    // Motor CW until HOME; handleCyclingCw will then route into the level
+    // overshoot sequence automatically.
+    Motor::cw(settings.motorSpeed);
+    transition(State::CYCLING_CW);
+    return true;
+}
+
 bool requestPause() {
     if (!isMotionState(currentState)) return false;
     Motor::stop();
