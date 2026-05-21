@@ -60,6 +60,8 @@
 #define CYCLE_TIMEOUT_SEC       120  // Max seconds for a full cycle (safety watchdog)
 #define ANTI_PINCH_REVERSE_MS   2000 // Milliseconds to reverse on pinch detection
 #define PAUSED_AUTO_RESUME_SEC  15   // Seconds to wait while paused before resuming
+#define CYCLE_OVERSHOOT_SEC     10   // Seconds to keep motor running past DUMP during a cleaning cycle (levels the litter and ensures full dump)
+#define EMPTY_OVERSHOOT_SEC     7    // Seconds to keep motor running past DUMP during a manual empty (ensures full dump)
 
 // --- WEIGHT SENSOR (optional) ---
 #define WEIGHT_SENSOR_ENABLED   false   // Set true to enable

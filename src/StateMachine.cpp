@@ -38,6 +38,7 @@ uint32_t catLeftMs = 0;          // when WAITING started
 uint32_t catEnteredMs = 0;       // when CAT_INSIDE started
 uint32_t pauseStartedMs = 0;
 uint32_t lastMotionProgressMs = 0;  // for anti-pinch
+uint32_t overshootStartMs = 0;      // when an OVERSHOOT_* state began
 
 uint32_t totalCycleCount = 0;
 uint32_t lastCycleTs = 0;
@@ -154,7 +155,9 @@ void loadHistory() {
 
 bool isMotionState(State s) {
     return s == State::CYCLING_CCW || s == State::CYCLING_CW
-        || s == State::EMPTYING    || s == State::RESETTING;
+        || s == State::EMPTYING    || s == State::RESETTING
+        || s == State::CYCLING_OVERSHOOT_DUMP
+        || s == State::EMPTYING_OVERSHOOT;
 }
 
 void runMotionWatchdog() {
@@ -221,6 +224,18 @@ void handleCyclingCcw() {
     runMotionWatchdog();
     if (currentState != State::CYCLING_CCW) return;  // watchdog tripped
     if (Sensors::isDumpPosition()) {
+        // Hit DUMP. Keep motor running CCW for the configured overshoot
+        // so the globe goes a bit past 180 degrees — improves the dump
+        // and leaves the litter level when the cycle finishes.
+        overshootStartMs = millis();
+        transition(State::CYCLING_OVERSHOOT_DUMP);
+    }
+}
+
+void handleCyclingOvershootDump() {
+    runMotionWatchdog();
+    if (currentState != State::CYCLING_OVERSHOOT_DUMP) return;
+    if (millis() - overshootStartMs >= (uint32_t)settings.cycleOvershootSec * 1000UL) {
         Motor::cw(settings.motorSpeed);
         lastMotionProgressMs = millis();
         transition(State::CYCLING_CW);
@@ -243,6 +258,17 @@ void handleEmptying() {
     runMotionWatchdog();
     if (currentState != State::EMPTYING) return;
     if (Sensors::isDumpPosition()) {
+        // Same idea as cycle overshoot, but tuned for emptying (typically
+        // a bit shorter — we only need full dump, not nice levelling).
+        overshootStartMs = millis();
+        transition(State::EMPTYING_OVERSHOOT);
+    }
+}
+
+void handleEmptyingOvershoot() {
+    runMotionWatchdog();
+    if (currentState != State::EMPTYING_OVERSHOOT) return;
+    if (millis() - overshootStartMs >= (uint32_t)settings.emptyOvershootSec * 1000UL) {
         Motor::stop();
         transition(State::RESETTING);
     }
@@ -266,10 +292,12 @@ void handlePaused() {
         Serial.println("[State] Resuming after PAUSED grace period");
         cycleStartMs = now;
         switch (stateBeforePause) {
-            case State::CYCLING_CCW: Motor::ccw(settings.motorSpeed); break;
-            case State::CYCLING_CW:  Motor::cw(settings.motorSpeed);  break;
-            case State::EMPTYING:    Motor::ccw(settings.motorSpeed); break;
-            case State::RESETTING:   Motor::cw(settings.motorSpeed);  break;
+            case State::CYCLING_CCW:            Motor::ccw(settings.motorSpeed); break;
+            case State::CYCLING_OVERSHOOT_DUMP: Motor::ccw(settings.motorSpeed); overshootStartMs = now; break;
+            case State::CYCLING_CW:             Motor::cw(settings.motorSpeed);  break;
+            case State::EMPTYING:               Motor::ccw(settings.motorSpeed); break;
+            case State::EMPTYING_OVERSHOOT:     Motor::ccw(settings.motorSpeed); overshootStartMs = now; break;
+            case State::RESETTING:              Motor::cw(settings.motorSpeed);  break;
             default: break;
         }
         transition(stateBeforePause);
@@ -290,15 +318,17 @@ void begin() {
 
 void loop() {
     switch (currentState) {
-        case State::IDLE:        handleIdle();        break;
-        case State::CAT_INSIDE:  handleCatInside();   break;
-        case State::WAITING:     handleWaiting();     break;
-        case State::CYCLING_CCW: handleCyclingCcw();  break;
-        case State::CYCLING_CW:  handleCyclingCw();   break;
-        case State::EMPTYING:    handleEmptying();    break;
-        case State::RESETTING:   handleResetting();   break;
-        case State::PAUSED:      handlePaused();      break;
-        case State::ERROR:       /* wait for manual reset */ break;
+        case State::IDLE:                   handleIdle();                  break;
+        case State::CAT_INSIDE:             handleCatInside();             break;
+        case State::WAITING:                handleWaiting();               break;
+        case State::CYCLING_CCW:            handleCyclingCcw();            break;
+        case State::CYCLING_OVERSHOOT_DUMP: handleCyclingOvershootDump();  break;
+        case State::CYCLING_CW:             handleCyclingCw();             break;
+        case State::EMPTYING:               handleEmptying();              break;
+        case State::EMPTYING_OVERSHOOT:     handleEmptyingOvershoot();     break;
+        case State::RESETTING:              handleResetting();             break;
+        case State::PAUSED:                 handlePaused();                break;
+        case State::ERROR:                  /* wait for manual reset */    break;
     }
 }
 
@@ -306,15 +336,17 @@ State current() { return currentState; }
 
 const char *stateName(State s) {
     switch (s) {
-        case State::IDLE:        return "IDLE";
-        case State::CAT_INSIDE:  return "CAT_INSIDE";
-        case State::WAITING:     return "WAITING";
-        case State::CYCLING_CCW: return "CYCLING_CCW";
-        case State::CYCLING_CW:  return "CYCLING_CW";
-        case State::EMPTYING:    return "EMPTYING";
-        case State::RESETTING:   return "RESETTING";
-        case State::PAUSED:      return "PAUSED";
-        case State::ERROR:       return "ERROR";
+        case State::IDLE:                   return "IDLE";
+        case State::CAT_INSIDE:             return "CAT_INSIDE";
+        case State::WAITING:                return "WAITING";
+        case State::CYCLING_CCW:            return "CYCLING_CCW";
+        case State::CYCLING_OVERSHOOT_DUMP: return "CYCLING_OVERSHOOT_DUMP";
+        case State::CYCLING_CW:             return "CYCLING_CW";
+        case State::EMPTYING:               return "EMPTYING";
+        case State::EMPTYING_OVERSHOOT:     return "EMPTYING_OVERSHOOT";
+        case State::RESETTING:              return "RESETTING";
+        case State::PAUSED:                 return "PAUSED";
+        case State::ERROR:                  return "ERROR";
     }
     return "UNKNOWN";
 }
@@ -368,12 +400,15 @@ bool requestPause() {
 
 bool requestResume() {
     if (currentState != State::PAUSED) return false;
-    cycleStartMs = millis();
+    uint32_t now = millis();
+    cycleStartMs = now;
     switch (stateBeforePause) {
-        case State::CYCLING_CCW: Motor::ccw(settings.motorSpeed); break;
-        case State::CYCLING_CW:  Motor::cw(settings.motorSpeed);  break;
-        case State::EMPTYING:    Motor::ccw(settings.motorSpeed); break;
-        case State::RESETTING:   Motor::cw(settings.motorSpeed);  break;
+        case State::CYCLING_CCW:            Motor::ccw(settings.motorSpeed); break;
+        case State::CYCLING_OVERSHOOT_DUMP: Motor::ccw(settings.motorSpeed); overshootStartMs = now; break;
+        case State::CYCLING_CW:             Motor::cw(settings.motorSpeed);  break;
+        case State::EMPTYING:               Motor::ccw(settings.motorSpeed); break;
+        case State::EMPTYING_OVERSHOOT:     Motor::ccw(settings.motorSpeed); overshootStartMs = now; break;
+        case State::RESETTING:              Motor::cw(settings.motorSpeed);  break;
         default: break;
     }
     transition(stateBeforePause);

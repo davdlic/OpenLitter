@@ -31,6 +31,8 @@ struct Settings {
     uint16_t catTimeoutMin;
     uint16_t cycleTimeoutSec;
     uint16_t antiPinchReverseMs;
+    uint16_t cycleOvershootSec;     // extra rotation past DUMP during cleaning
+    uint16_t emptyOvershootSec;     // extra rotation past DUMP during empty
 
     // --- Weight sensor ---
     bool    weightEnabled;
