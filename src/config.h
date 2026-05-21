@@ -31,26 +31,27 @@
 #define OPENLITTER_VERSION  "0.1.0"
 
 // --- MOTOR PINS (L298N) ---
-#define MOTOR_IN1_PIN       25
-#define MOTOR_IN2_PIN       26
-#define MOTOR_EN_PIN        27      // PWM enable pin (set -1 if not used)
+// Every pin is also editable from Settings -> Hardware at runtime.
+#define MOTOR_IN1_PIN       19
+#define MOTOR_IN2_PIN       21
+#define MOTOR_EN_PIN        18      // PWM enable pin (set -1 if not used)
 #define MOTOR_SPEED         200     // 0-255, PWM speed
 #define MOTOR_PWM_CHANNEL   0       // ESP32 LEDC channel for motor PWM
 #define MOTOR_PWM_FREQ_HZ   20000   // 20 kHz, above audible range
 #define MOTOR_PWM_RES_BITS  8       // 8-bit (0-255)
 
 // --- HALL SENSORS ---
-#define HALL_HOME_PIN       32      // Hall sensor 1 - Home position
-#define HALL_DUMP_PIN       33      // Hall sensor 2 - Dump position
+#define HALL_HOME_PIN       22      // Hall sensor 1 - Home position
+#define HALL_DUMP_PIN       23      // Hall sensor 2 - Dump position
 #define HALL_ACTIVE_STATE   LOW     // LOW or HIGH when magnet detected
 #define HALL_DEBOUNCE_MS    20
 
-// --- CAT SENSOR (micro switch on pedal) ---
+// --- CAT SENSOR (micro switch on pedal + cable safety in parallel) ---
 // Wiring values for CAT_SENSOR_TYPE
 #define CAT_SENSOR_NC           0   // Normally Closed
 #define CAT_SENSOR_NO           1   // Normally Open
 
-#define CAT_SENSOR_PIN          18
+#define CAT_SENSOR_PIN          16
 #define CAT_SENSOR_TYPE         CAT_SENSOR_NC
 #define CAT_SENSOR_DEBOUNCE_MS  50
 
@@ -73,9 +74,12 @@
 #define WEIGHT_SAMPLE_RATE_MS   200     // How often to read the cell
 
 // --- ADVANCED PRESENCE SENSOR (optional, HLK-LD2410C) ---
+// Moved off GPIO 16/17 (the original UART2 defaults) because GPIO 16
+// is now the cat micro-switch by default. UART can be remapped to any
+// free GPIOs on ESP32, so 4/5 work fine.
 #define PRESENCE_SENSOR_ENABLED false
-#define PRESENCE_SENSOR_RX_PIN  16
-#define PRESENCE_SENSOR_TX_PIN  17
+#define PRESENCE_SENSOR_RX_PIN  4
+#define PRESENCE_SENSOR_TX_PIN  5
 #define PRESENCE_SENSOR_BAUD    256000
 
 // --- NETWORK ---
