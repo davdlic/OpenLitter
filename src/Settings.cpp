@@ -51,6 +51,8 @@ void Settings::resetToDefaults() {
     catTimeoutMin      = CAT_TIMEOUT_MIN;
     cycleTimeoutSec    = CYCLE_TIMEOUT_SEC;
     antiPinchReverseMs = ANTI_PINCH_REVERSE_MS;
+    cycleDumpAdvanceSec     = CYCLE_DUMP_ADVANCE_SEC;
+    emptyDumpAdvanceSec     = EMPTY_DUMP_ADVANCE_SEC;
     cycleDumpPauseSec       = CYCLE_DUMP_PAUSE_SEC;
     emptyDumpPauseSec       = EMPTY_DUMP_PAUSE_SEC;
     cycleLevelOvershootSec  = CYCLE_LEVEL_OVERSHOOT_SEC;
@@ -169,6 +171,8 @@ bool Settings::applyJson(const JsonObjectConst &obj) {
     setI("cat_timeout_min",        catTimeoutMin);
     setI("cycle_timeout_sec",      cycleTimeoutSec);
     setI("anti_pinch_reverse_ms",  antiPinchReverseMs);
+    setI("cycle_dump_advance_sec",    cycleDumpAdvanceSec);
+    setI("empty_dump_advance_sec",    emptyDumpAdvanceSec);
     setI("cycle_dump_pause_sec",      cycleDumpPauseSec);
     setI("empty_dump_pause_sec",      emptyDumpPauseSec);
     setI("cycle_level_overshoot_sec", cycleLevelOvershootSec);
@@ -225,6 +229,8 @@ void Settings::toJson(JsonObject obj, bool redactSecrets) const {
     obj["cat_timeout_min"]       = catTimeoutMin;
     obj["cycle_timeout_sec"]     = cycleTimeoutSec;
     obj["anti_pinch_reverse_ms"] = antiPinchReverseMs;
+    obj["cycle_dump_advance_sec"]    = cycleDumpAdvanceSec;
+    obj["empty_dump_advance_sec"]    = emptyDumpAdvanceSec;
     obj["cycle_dump_pause_sec"]      = cycleDumpPauseSec;
     obj["empty_dump_pause_sec"]      = emptyDumpPauseSec;
     obj["cycle_level_overshoot_sec"] = cycleLevelOvershootSec;

@@ -15,10 +15,10 @@
   let lastStatus = null;
   let dirty = false;
   const motionStates = new Set([
-    'CYCLING_CCW', 'CYCLING_DUMP_PAUSE', 'CYCLING_CW',
+    'CYCLING_CCW', 'CYCLING_DUMP_ADVANCE', 'CYCLING_DUMP_PAUSE', 'CYCLING_CW',
     'CYCLING_LEVEL_OVERSHOOT', 'CYCLING_LEVEL_RETURN',
     'CYCLING_LEVEL_BACK_OVERSHOOT', 'CYCLING_LEVEL_BACK_RETURN',
-    'EMPTYING', 'EMPTYING_DUMP_PAUSE', 'RESETTING',
+    'EMPTYING', 'EMPTYING_DUMP_ADVANCE', 'EMPTYING_DUMP_PAUSE', 'RESETTING',
   ]);
 
   // ---------- Toast ----------
@@ -255,16 +255,18 @@
     // (CCW -> DUMP -> overshoot -> CW), but the user-facing label should
     // reflect intent: it's a reset, not a cleaning cycle.
     if (data && data.reset_in_progress) {
-      if (s === 'CYCLING_CCW' || s === 'CYCLING_DUMP_PAUSE' ||
-          s === 'CYCLING_CW'  || s === 'CYCLING_LEVEL_OVERSHOOT' ||
-          s === 'CYCLING_LEVEL_RETURN' || s === 'CYCLING_LEVEL_BACK_OVERSHOOT' ||
-          s === 'CYCLING_LEVEL_BACK_RETURN' || s === 'RESETTING') return 'RESETTING';
+      if (s === 'CYCLING_CCW' || s === 'CYCLING_DUMP_ADVANCE' ||
+          s === 'CYCLING_DUMP_PAUSE' || s === 'CYCLING_CW' ||
+          s === 'CYCLING_LEVEL_OVERSHOOT' || s === 'CYCLING_LEVEL_RETURN' ||
+          s === 'CYCLING_LEVEL_BACK_OVERSHOOT' || s === 'CYCLING_LEVEL_BACK_RETURN' ||
+          s === 'RESETTING') return 'RESETTING';
     }
     switch (s) {
       case 'IDLE':                         return 'READY';
       case 'CAT_INSIDE':                   return 'CAT INSIDE';
       case 'WAITING':                      return 'WAITING';
       case 'CYCLING_CCW':                  return 'CLEANING';
+      case 'CYCLING_DUMP_ADVANCE':         return 'DUMPING';
       case 'CYCLING_DUMP_PAUSE':           return 'DUMPING';
       case 'CYCLING_CW':                   return 'RETURNING';
       case 'CYCLING_LEVEL_OVERSHOOT':      return 'LEVELING';
@@ -272,6 +274,7 @@
       case 'CYCLING_LEVEL_BACK_OVERSHOOT': return 'LEVELING';
       case 'CYCLING_LEVEL_BACK_RETURN':    return 'LEVELING';
       case 'EMPTYING':                     return 'EMPTYING';
+      case 'EMPTYING_DUMP_ADVANCE':        return 'DUMPING';
       case 'EMPTYING_DUMP_PAUSE':          return 'DUMPING';
       case 'RESETTING':                    return 'RETURNING';
       case 'PAUSED':                       return 'PAUSED';
@@ -298,6 +301,7 @@
       case 'CAT_INSIDE':                   return 'Cat is inside the globe';
       case 'WAITING':                      return 'Cat left, counting down before cleaning';
       case 'CYCLING_CCW':                  return 'Rotating globe toward dump position';
+      case 'CYCLING_DUMP_ADVANCE':         return 'Opening dump door fully';
       case 'CYCLING_DUMP_PAUSE':           return 'Stopped at dump — waste falling into tray';
       case 'CYCLING_CW':                   return 'Returning globe to rest position';
       case 'CYCLING_LEVEL_OVERSHOOT':      return 'Levelling litter — past home (CW)';
@@ -305,6 +309,7 @@
       case 'CYCLING_LEVEL_BACK_OVERSHOOT': return 'Back shake — past home (CCW)';
       case 'CYCLING_LEVEL_BACK_RETURN':    return 'Back shake — coming back to home';
       case 'EMPTYING':                     return 'Rotating to dump position';
+      case 'EMPTYING_DUMP_ADVANCE':        return 'Opening dump door fully';
       case 'EMPTYING_DUMP_PAUSE':          return 'Stopped at dump — pull tray now';
       case 'RESETTING':                    return 'Returning globe to rest position';
       case 'PAUSED':                       return 'Paused — will auto-resume after grace period';

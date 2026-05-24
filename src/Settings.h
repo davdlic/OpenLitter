@@ -31,6 +31,8 @@ struct Settings {
     uint16_t catTimeoutMin;
     uint16_t cycleTimeoutSec;
     uint16_t antiPinchReverseMs;
+    uint16_t cycleDumpAdvanceSec;     // after the DUMP sensor fires, motor keeps running CCW for this many seconds so the door opens fully (then stops for cycleDumpPauseSec)
+    uint16_t emptyDumpAdvanceSec;     // same idea for manual empty
     uint16_t cycleDumpPauseSec;       // pause-at-DUMP seconds during a cleaning cycle (motor stopped, waste falls)
     uint16_t emptyDumpPauseSec;       // pause-at-DUMP seconds during a manual empty (motor stopped, pull tray)
     uint16_t cycleLevelOvershootSec;  // seconds the motor keeps going CW past HOME at the end of a cycle (sand levelling), then reverses CCW back to HOME

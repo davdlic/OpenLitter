@@ -161,8 +161,13 @@
         <label>Cat fallback timeout (min) <input data-cfg="cat_timeout_min" type="number" min="1" max="60" /></label>
         <label>Cycle watchdog (sec) <input data-cfg="cycle_timeout_sec" type="number" min="30" max="600" /></label>
         <label>Anti-pinch reverse (ms) <input data-cfg="anti_pinch_reverse_ms" type="number" min="0" max="10000" /></label>
+        <h4>DUMP advance</h4>
+        <p class="muted small">After the DUMP sensor fires, motor keeps running CCW for these seconds so the dump door opens <em>fully</em>. Reed switches typically trigger a couple of degrees before the door reaches maximum opening — this small advance compensates. Keep low (1-3 s); too long and the rotation goes past 180° and the door starts closing again.</p>
+        <label>Cycle dump advance (sec) <input data-cfg="cycle_dump_advance_sec" type="number" min="0" max="10" /></label>
+        <label>Empty dump advance (sec) <input data-cfg="empty_dump_advance_sec" type="number" min="0" max="10" /></label>
+
         <h4>Pause at DUMP</h4>
-        <p class="muted small">Seconds the motor stays STOPPED at the DUMP sensor so waste can fall through the dump door. The motor does <em>not</em> rotate past DUMP — on real Litter Robot mechanics, continuing past DUMP would close the door again. For Empty, this is how long to wait there before returning home (e.g. enough time to pull the tray).</p>
+        <p class="muted small">After the advance, motor STOPS and the door stays fully open for these seconds, so waste can fall into the tray. For Empty, this is how long to wait there before the CW return home — e.g. enough time to pull the tray.</p>
         <label>Cycle dump pause (sec) <input data-cfg="cycle_dump_pause_sec" type="number" min="0" max="60" /></label>
         <label>Empty dump pause (sec) <input data-cfg="empty_dump_pause_sec" type="number" min="0" max="60" /></label>
 
