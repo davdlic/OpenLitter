@@ -223,8 +223,15 @@ void handleWaiting() {
     }
     uint32_t waitMs = (uint32_t)settings.waitAfterCatMin * 60UL * 1000UL;
     if (now - catLeftMs >= waitMs) {
-        // Time to clean.
+        // Time to clean. Reset cycleBeginMs (the "original cycle start"
+        // used to record the duration in history) — without this, the
+        // automatic cat-triggered cycle inherits cycleBeginMs from the
+        // previous cycle, or 0 on first boot, and history shows the
+        // device's uptime as the cycle duration. Manual requestCycle()
+        // already does this; the auto path was missing it.
+        resetInProgress = false;
         Motor::ccw(settings.motorSpeed);
+        cycleBeginMs = now;
         cycleStartMs = now;
         lastMotionProgressMs = now;
         transition(State::CYCLING_CCW);
