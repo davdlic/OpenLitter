@@ -160,9 +160,7 @@ void loadHistory() {
 bool isMotionState(State s) {
     return s == State::CYCLING_CCW || s == State::CYCLING_CW
         || s == State::EMPTYING    || s == State::RESETTING
-        || s == State::CYCLING_DUMP_ADVANCE
         || s == State::CYCLING_DUMP_PAUSE
-        || s == State::EMPTYING_DUMP_ADVANCE
         || s == State::EMPTYING_DUMP_PAUSE
         || s == State::CYCLING_LEVEL_OVERSHOOT
         || s == State::CYCLING_LEVEL_RETURN
@@ -242,22 +240,9 @@ void handleCyclingCcw() {
     runMotionWatchdog();
     if (currentState != State::CYCLING_CCW) return;  // watchdog tripped
     if (Sensors::isDumpPosition()) {
-        // DUMP sensor just fired. Reed switches typically trigger a couple
-        // of degrees before the door is at its widest, so keep the motor
-        // running CCW for cycle_dump_advance_sec to finish opening the
-        // door — then handleCyclingDumpAdvance will stop and pause.
-        overshootStartMs = millis();
-        cycleStartMs = millis();
-        lastMotionProgressMs = cycleStartMs;
-        transition(State::CYCLING_DUMP_ADVANCE);
-    }
-}
-
-void handleCyclingDumpAdvance() {
-    runMotionWatchdog();
-    if (currentState != State::CYCLING_DUMP_ADVANCE) return;
-    if (millis() - overshootStartMs >= (uint32_t)settings.cycleDumpAdvanceSec * 1000UL) {
-        // Door is now fully open. STOP the motor and let waste fall.
+        // Hit DUMP. STOP the motor and let waste fall through the dump door
+        // for the configured pause. Rotating any further CCW would close the
+        // door again on real Litter Robot mechanics.
         Motor::stop();
         overshootStartMs = millis();
         cycleStartMs = millis();
@@ -374,19 +359,9 @@ void handleEmptying() {
     runMotionWatchdog();
     if (currentState != State::EMPTYING) return;
     if (Sensors::isDumpPosition()) {
-        // Same advance-then-pause split as the cycle path so the door
-        // opens fully before we stop.
-        overshootStartMs = millis();
-        cycleStartMs = millis();
-        lastMotionProgressMs = cycleStartMs;
-        transition(State::EMPTYING_DUMP_ADVANCE);
-    }
-}
-
-void handleEmptyingDumpAdvance() {
-    runMotionWatchdog();
-    if (currentState != State::EMPTYING_DUMP_ADVANCE) return;
-    if (millis() - overshootStartMs >= (uint32_t)settings.emptyDumpAdvanceSec * 1000UL) {
+        // STOP at DUMP, same as the cycle path. The motor stays off for
+        // emptyDumpPauseSec so the user can remove the tray (or so the
+        // last bit of waste settles), before we start the CW return.
         Motor::stop();
         overshootStartMs = millis();
         cycleStartMs = millis();
@@ -431,7 +406,6 @@ void handlePaused() {
         cycleStartMs = now;
         switch (stateBeforePause) {
             case State::CYCLING_CCW:                  Motor::ccw(settings.motorSpeed); break;
-            case State::CYCLING_DUMP_ADVANCE:         Motor::ccw(settings.motorSpeed); overshootStartMs = now; break;
             case State::CYCLING_DUMP_PAUSE:           overshootStartMs = now; break;  // motor stays stopped during pause-at-DUMP
             case State::CYCLING_CW:                   Motor::cw(settings.motorSpeed);  break;
             case State::CYCLING_LEVEL_OVERSHOOT:      Motor::cw(settings.motorSpeed); overshootStartMs = now; break;
@@ -439,7 +413,6 @@ void handlePaused() {
             case State::CYCLING_LEVEL_BACK_OVERSHOOT: Motor::ccw(settings.motorSpeed); overshootStartMs = now; break;
             case State::CYCLING_LEVEL_BACK_RETURN:    Motor::cw(settings.motorSpeed);  levelReturnArmed = false; break;
             case State::EMPTYING:                     Motor::ccw(settings.motorSpeed); break;
-            case State::EMPTYING_DUMP_ADVANCE:        Motor::ccw(settings.motorSpeed); overshootStartMs = now; break;
             case State::EMPTYING_DUMP_PAUSE:          overshootStartMs = now; break;  // motor stays stopped during pause-at-DUMP
             case State::RESETTING:                    Motor::cw(settings.motorSpeed);  break;
             default: break;
@@ -477,7 +450,6 @@ void loop() {
         case State::CAT_INSIDE:             handleCatInside();             break;
         case State::WAITING:                handleWaiting();               break;
         case State::CYCLING_CCW:            handleCyclingCcw();            break;
-        case State::CYCLING_DUMP_ADVANCE: handleCyclingDumpAdvance();  break;
         case State::CYCLING_DUMP_PAUSE:  handleCyclingDumpPause();      break;
         case State::CYCLING_CW:          handleCyclingCw();             break;
         case State::CYCLING_LEVEL_OVERSHOOT: handleCyclingLevelOvershoot();     break;
@@ -485,7 +457,6 @@ void loop() {
         case State::CYCLING_LEVEL_BACK_OVERSHOOT: handleCyclingLevelBackOvershoot(); break;
         case State::CYCLING_LEVEL_BACK_RETURN:    handleCyclingLevelBackReturn();    break;
         case State::EMPTYING:                handleEmptying();              break;
-        case State::EMPTYING_DUMP_ADVANCE:   handleEmptyingDumpAdvance();   break;
         case State::EMPTYING_DUMP_PAUSE:     handleEmptyingDumpPause();     break;
         case State::RESETTING:              handleResetting();             break;
         case State::PAUSED:                 handlePaused();                break;
@@ -501,7 +472,6 @@ const char *stateName(State s) {
         case State::CAT_INSIDE:             return "CAT_INSIDE";
         case State::WAITING:                return "WAITING";
         case State::CYCLING_CCW:            return "CYCLING_CCW";
-        case State::CYCLING_DUMP_ADVANCE: return "CYCLING_DUMP_ADVANCE";
         case State::CYCLING_DUMP_PAUSE:   return "CYCLING_DUMP_PAUSE";
         case State::CYCLING_CW:           return "CYCLING_CW";
         case State::CYCLING_LEVEL_OVERSHOOT:      return "CYCLING_LEVEL_OVERSHOOT";
@@ -509,7 +479,6 @@ const char *stateName(State s) {
         case State::CYCLING_LEVEL_BACK_OVERSHOOT: return "CYCLING_LEVEL_BACK_OVERSHOOT";
         case State::CYCLING_LEVEL_BACK_RETURN:    return "CYCLING_LEVEL_BACK_RETURN";
         case State::EMPTYING:                return "EMPTYING";
-        case State::EMPTYING_DUMP_ADVANCE:   return "EMPTYING_DUMP_ADVANCE";
         case State::EMPTYING_DUMP_PAUSE:     return "EMPTYING_DUMP_PAUSE";
         case State::RESETTING:              return "RESETTING";
         case State::PAUSED:                 return "PAUSED";
@@ -546,9 +515,7 @@ bool requestReset() {
     Motor::stop();
     currentError = "";
     if (currentState == State::ERROR || currentState == State::PAUSED ||
-        currentState == State::EMPTYING || currentState == State::EMPTYING_DUMP_ADVANCE ||
-        currentState == State::EMPTYING_DUMP_PAUSE ||
-        currentState == State::CYCLING_DUMP_ADVANCE ||
+        currentState == State::EMPTYING || currentState == State::EMPTYING_DUMP_PAUSE ||
         currentState == State::CYCLING_DUMP_PAUSE ||
         currentState == State::CYCLING_LEVEL_OVERSHOOT ||
         currentState == State::CYCLING_LEVEL_RETURN ||
@@ -628,7 +595,6 @@ bool requestResume() {
     cycleStartMs = now;
     switch (stateBeforePause) {
         case State::CYCLING_CCW:                  Motor::ccw(settings.motorSpeed); break;
-        case State::CYCLING_DUMP_ADVANCE:         Motor::ccw(settings.motorSpeed); overshootStartMs = now; break;
         case State::CYCLING_DUMP_PAUSE:           overshootStartMs = now; break;  // motor stays stopped during pause-at-DUMP
         case State::CYCLING_CW:                   Motor::cw(settings.motorSpeed);  break;
         case State::CYCLING_LEVEL_OVERSHOOT:      Motor::cw(settings.motorSpeed); overshootStartMs = now; break;
@@ -636,7 +602,6 @@ bool requestResume() {
         case State::CYCLING_LEVEL_BACK_OVERSHOOT: Motor::ccw(settings.motorSpeed); overshootStartMs = now; break;
         case State::CYCLING_LEVEL_BACK_RETURN:    Motor::cw(settings.motorSpeed);  levelReturnArmed = false; break;
         case State::EMPTYING:                     Motor::ccw(settings.motorSpeed); break;
-        case State::EMPTYING_DUMP_ADVANCE:        Motor::ccw(settings.motorSpeed); overshootStartMs = now; break;
         case State::EMPTYING_DUMP_PAUSE:          overshootStartMs = now; break;  // motor stays stopped during pause-at-DUMP
         case State::RESETTING:                    Motor::cw(settings.motorSpeed);  break;
         default: break;

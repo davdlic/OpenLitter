@@ -28,7 +28,7 @@
 #include <Arduino.h>
 
 // --- FIRMWARE METADATA ---
-#define OPENLITTER_VERSION  "0.5.0"
+#define OPENLITTER_VERSION  "0.4.1"
 
 // --- MOTOR PINS (L298N) ---
 // Every pin is also editable from Settings -> Hardware at runtime.
@@ -62,10 +62,8 @@
 #define ANTI_PINCH_REVERSE_MS   2000 // Milliseconds to reverse on pinch detection
 #define PAUSED_AUTO_RESUME_SEC  15   // Anti-pinch pause (cat detected during motion): seconds to wait before resuming
 #define MANUAL_PAUSE_AUTO_RESUME_SEC 300 // Manual pause (user pressed Pause): seconds to wait before resuming. Longer than anti-pinch so the user has time to intervene without the machine auto-restarting in 15 s
-#define CYCLE_DUMP_ADVANCE_SEC    2   // After the DUMP sensor fires, motor keeps running CCW for this many seconds so the dump door opens fully (the reed switch typically triggers a couple of degrees before the door is at its widest). Keep small — too long and the rotation goes past 180° and the door starts closing again.
-#define EMPTY_DUMP_ADVANCE_SEC    2   // Same idea for manual empty.
-#define CYCLE_DUMP_PAUSE_SEC      7   // Seconds to PAUSE (motor off) at the fully-open dump position so waste falls through the door before the CW return.
-#define EMPTY_DUMP_PAUSE_SEC      5   // Seconds to PAUSE (motor off) at DUMP during a manual empty (gives time to pull the tray).
+#define CYCLE_DUMP_PAUSE_SEC      7   // Seconds to PAUSE (motor off) at DUMP so waste falls through the door before the CW return.
+#define EMPTY_DUMP_PAUSE_SEC      5   // Seconds to PAUSE (motor off) at DUMP during a manual empty (gives time to pull the tray)
 #define CYCLE_LEVEL_OVERSHOOT_SEC 15  // Seconds the motor keeps going CW past HOME at the end of a cycle, then reverses CCW back to HOME. First half of the sand "shake". 0 disables both phases.
 #define CYCLE_LEVEL_BACK_OVERSHOOT_SEC 5 // After the CCW return reaches HOME again, the motor keeps going CCW for this many seconds (back-shake in the opposite direction), then reverses CW back to HOME and stops. Hardcoded — not exposed in Settings to keep the timing tab simple.
 
