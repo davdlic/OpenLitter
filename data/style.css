@@ -274,6 +274,18 @@ main {
 
 .file-btn { display: inline-flex; align-items: center; justify-content: center; }
 
+/* ---------- 7-day chart ---------- */
+.chart {
+  margin-top: 0.4rem;
+  width: 100%;
+}
+
+.chart canvas {
+  display: block;
+  width: 100%;
+  height: 130px;
+}
+
 /* ---------- History list ---------- */
 .history {
   list-style: none;

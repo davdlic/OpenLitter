@@ -187,6 +187,95 @@
     return `${m}m`;
   }
 
+  // Bucket the history array by local day for the last 7 days and draw a
+  // simple bar chart on the canvas. Plain 2D canvas, no deps. Recomputes
+  // every status tick — cheap (max 7 bars over a handful of entries) and
+  // keeps the chart in sync if a cycle completes while the page is open.
+  function renderChart(history) {
+    const canvas = $('#chart-canvas');
+    const summary = $('#chart-summary');
+    if (!canvas) return;
+    const days = 7;
+    const buckets = new Array(days).fill(0);
+    const labels = [];
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const dayMs = 86400 * 1000;
+    const oldestMs = today.getTime() - (days - 1) * dayMs;
+    for (let i = 0; i < days; i++) {
+      const d = new Date(oldestMs + i * dayMs);
+      labels.push(d.toLocaleDateString(undefined, { weekday: 'short' }));
+    }
+    let total = 0;
+    (history || []).forEach(h => {
+      if (!h || !h.timestamp) return;
+      const t = h.timestamp * 1000;
+      if (t < oldestMs || t >= today.getTime() + dayMs) return;
+      const idx = Math.floor((t - oldestMs) / dayMs);
+      if (idx < 0 || idx >= days) return;
+      buckets[idx]++;
+      total++;
+    });
+
+    // Crisp on high-DPI: resize backing store to clientWidth × dpr.
+    const dpr = window.devicePixelRatio || 1;
+    const cssW = canvas.clientWidth || 320;
+    const cssH = canvas.clientHeight || 130;
+    if (canvas.width !== Math.round(cssW * dpr)) canvas.width = Math.round(cssW * dpr);
+    if (canvas.height !== Math.round(cssH * dpr)) canvas.height = Math.round(cssH * dpr);
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssW, cssH);
+
+    const max = Math.max(1, ...buckets);
+    const padTop = 18, padBottom = 22, padX = 4;
+    const usable = cssH - padTop - padBottom;
+    const slotW = (cssW - 2 * padX) / days;
+    const css = getComputedStyle(document.documentElement);
+    const accent = css.getPropertyValue('--accent').trim() || '#60a5fa';
+    const emptyBar = css.getPropertyValue('--border').trim() || '#2a2d4a';
+    const text = css.getPropertyValue('--text').trim() || '#e7e9f5';
+    const muted = css.getPropertyValue('--muted').trim() || '#8a8eaa';
+
+    ctx.font = '11px system-ui, -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+
+    buckets.forEach((count, i) => {
+      const slotX = padX + i * slotW;
+      const barW = slotW * 0.6;
+      const barX = slotX + (slotW - barW) / 2;
+      const h = (count / max) * usable;
+      const barY = padTop + (usable - h);
+      ctx.fillStyle = count > 0 ? accent : emptyBar;
+      // Always draw at least a 2 px stub so the day strip is readable.
+      const drawH = Math.max(h, 2);
+      const drawY = padTop + usable - drawH;
+      const r = 3;
+      // Rounded top corners.
+      ctx.beginPath();
+      ctx.moveTo(barX, drawY + drawH);
+      ctx.lineTo(barX, drawY + r);
+      ctx.quadraticCurveTo(barX, drawY, barX + r, drawY);
+      ctx.lineTo(barX + barW - r, drawY);
+      ctx.quadraticCurveTo(barX + barW, drawY, barX + barW, drawY + r);
+      ctx.lineTo(barX + barW, drawY + drawH);
+      ctx.closePath();
+      ctx.fill();
+      if (count > 0) {
+        ctx.fillStyle = text;
+        ctx.fillText(String(count), slotX + slotW / 2, drawY - 4);
+      }
+      ctx.fillStyle = muted;
+      ctx.fillText(labels[i], slotX + slotW / 2, cssH - 6);
+    });
+
+    if (summary) {
+      summary.textContent = total === 0
+        ? 'No cycles in the last 7 days'
+        : `${total} ${total === 1 ? 'cycle' : 'cycles'} in the last 7 days`;
+    }
+  }
+
   function applyStatus(data) {
     lastStatus = data;
     const state = data.state || 'UNKNOWN';
@@ -228,6 +317,8 @@
                       <span>${fmtDuration(h.duration)}${h.weight_kg ? ` · ${h.weight_kg.toFixed(2)} kg` : ''}</span>`;
       hist.appendChild(li);
     });
+
+    renderChart(data.history || []);
 
     const net = data.network || {};
     $('#net-summary').textContent = net.ssid

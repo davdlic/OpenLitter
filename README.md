@@ -16,7 +16,8 @@ Licensed under the GNU General Public License v3.0 — see LICENSE
 
 OpenLitter brings a dead Litter Robot back to life with a cheap ESP32, an L298N motor driver, the original DC motor, and a couple of Hall sensors. It exposes a mobile-friendly Web UI (PWA), real-time WebSocket updates, optional MQTT with Home Assistant auto-discovery, optional weight and mmWave presence sensors, and OTA updates.
 
-> ⚠️ This is community firmware. It is **not** affiliated with Whisker / Litter Robot. Use at your own risk.
+> [!IMPORTANT]
+> This is community firmware. It is **not** affiliated with Whisker / Litter Robot. Use at your own risk.
 
 ---
 
@@ -31,7 +32,7 @@ OpenLitter brings a dead Litter Robot back to life with a cheap ESP32, an L298N 
 - **Optional MQTT** with Home Assistant auto-discovery (state sensor, weight, cat-present binary sensor, command buttons, availability LWT).
 - **Optional weight sensor** (HX711 + 4 load cells under the feet) for cat detection by weight delta.
 - **Optional mmWave presence sensor** (HLK-LD2410C) as an extra confirmation layer.
-- **Last 20 cleaning cycles** kept in history (NVS, survives reflashes).
+- **Last 20 cleaning cycles** kept in history (NVS, survives reflashes), with a per-day bar chart on the dashboard for at-a-glance trends over the last 7 days.
 - **Live logs in the browser** — Logs tab streams state transitions, WiFi/MQTT/Update events in real time over WebSocket. Filter by Info/Warn/Error, pause, copy or download as `.txt`.
 - **In-browser firmware update** — drop a `firmware.bin` / `littlefs.bin` onto the Web UI; progress bar + post-reboot polling, no PC tools required. See [docs/updating.md](docs/updating.md).
 - **ArduinoOTA** push from PlatformIO for developers, with password protection.
@@ -165,16 +166,18 @@ See [docs/sensors.md](docs/sensors.md) for installation details (load cell place
 OpenLitter integrates with Home Assistant in two ways:
 
 1. **MQTT** — enable MQTT in the Web UI and turn on HA auto-discovery. Entities show up automatically: state sensor, weight sensor, cat-present binary sensor, cycle/empty/reset/pause buttons.
-2. **HACS custom integration** — pre-1.0, lives at [davdlic/OpenLitter-HA](https://github.com/davdlic/OpenLitter-HA). Adds richer entities (full history, raw HOME/DUMP/CAT sensors, firmware-update entity that flashes via `/api/update`) plus a Lovelace card with rotating-globe animation. See [docs/home_assistant.md](docs/home_assistant.md) for setup.
+2. **HACS custom integration** — lives at [davdlic/OpenLitter-HA](https://github.com/davdlic/OpenLitter-HA). Adds richer entities (full history, raw HOME/DUMP/CAT sensors, firmware-update entity that flashes via `/api/update`), bus events for Logbook + automations, diagnostics download, reconfigure/reauth flows, plus a Lovelace card with rotating-globe animation. See [docs/home_assistant.md](docs/home_assistant.md) for setup.
 
 ---
 
 ## Roadmap
 
-- **Phase 1 — Firmware** ✅ this repository
-- **Phase 2 — HACS integration** — first skeleton at [davdlic/OpenLitter-HA](https://github.com/davdlic/OpenLitter-HA), pre-1.0
-- **Phase 3 — Advanced PWA** — push notifications, local history graphs
-- **Phase 4 — Custom PCB** — drop-in board replacing the L298N + ESP32 wiring
+- **Phase 1 — Firmware** ✅ stable at v1.0.0, this repository.
+- **Phase 2 — HACS integration** ✅ stable at v1.0.0, [davdlic/OpenLitter-HA](https://github.com/davdlic/OpenLitter-HA).
+- **Phase 3 — Advanced PWA** ✅ Logs viewer, in-browser firmware update, 7-day history chart all shipped. Push notifications skipped intentionally — for alerts use the HA integration's bus events instead.
+- **Phase 4 — Custom PCB** — drop-in board replacing the L298N + ESP32 wiring. **In progress** as a separate hardware project; not blocking firmware releases.
+
+See [CHANGELOG.md](CHANGELOG.md) for the per-release history.
 
 ---
 
