@@ -22,19 +22,22 @@ OpenLitter brings a dead Litter Robot back to life with a cheap ESP32, an L298N 
 
 ## Features
 
-- **PWA Web UI** — works as an app on your phone, dark mode, fully offline-capable, zero CDN dependencies.
-- **Real-time updates** via WebSockets (no polling, no refresh).
-- **Robust state machine** with watchdog, anti-pinch and safety timeouts.
-- **Self-healing WiFi** — falls back to a `OpenLitter-Setup` access point on first boot or repeated failures; cleaning cycles keep working offline.
-- **Optional MQTT** with Home Assistant auto-discovery (sensors, binary sensors, buttons).
-- **Optional weight sensor** (HX711 + 4 load cells under the feet) for reliable cat detection by weight delta.
+- **PWA Web UI** — installable app on your phone, dark mode, fully offline-capable, zero CDN dependencies.
+- **Real-time updates** via WebSockets (no polling, no refresh) — live state badge, live HOME/DUMP/CAT sensor pills, live last cycle.
+- **Robust state machine** with watchdog (per phase), anti-pinch with grace period, and a boot-time HOME check that recovers from power cuts mid-cycle.
+- **Configurable cycle mechanics** — pause at DUMP (waste falls) and sand-shake leveling past HOME (CW + back CCW) tunable from the Web UI; defaults match a real Litter Robot.
+- **Manual command set** — Cycle, Empty, Reset (full clean), Home (park without dump), Pause, Resume, Tare. Distinct grace periods for manual pause (5 min) vs anti-pinch pause (15 s).
+- **Self-healing WiFi** — falls back to an `OpenLitter-Setup` access point on first boot or repeated failures; cleaning cycles keep working offline.
+- **Optional MQTT** with Home Assistant auto-discovery (state sensor, weight, cat-present binary sensor, command buttons, availability LWT).
+- **Optional weight sensor** (HX711 + 4 load cells under the feet) for cat detection by weight delta.
 - **Optional mmWave presence sensor** (HLK-LD2410C) as an extra confirmation layer.
-- **Last 20 cleaning cycles** kept in history (NVS).
-- **Live logs in the browser** — Logs tab in the Web UI streams state transitions, WiFi/MQTT/Update events in real time over WebSocket. Filter by Info/Warn/Error, pause, download as `.txt`.
+- **Last 20 cleaning cycles** kept in history (NVS, survives reflashes).
+- **Live logs in the browser** — Logs tab streams state transitions, WiFi/MQTT/Update events in real time over WebSocket. Filter by Info/Warn/Error, pause, copy or download as `.txt`.
 - **In-browser firmware update** — drop a `firmware.bin` / `littlefs.bin` onto the Web UI; progress bar + post-reboot polling, no PC tools required. See [docs/updating.md](docs/updating.md).
-- **OTA updates** with password protection.
+- **ArduinoOTA** push from PlatformIO for developers, with password protection.
 - **mDNS** — reach the device at `openlitter.local`.
-- **100 % configurable pins** and switch type (NC/NO) — no recompile needed for most settings.
+- **100% configurable pins** and switch type (NC/NO) from the Web UI — no recompile needed for most settings.
+- **Companion Home Assistant integration + Lovelace card** at [davdlic/OpenLitter-HA](https://github.com/davdlic/OpenLitter-HA) — local-push, auto-discovery, native HA Update entity that flashes both firmware and Web UI from a release.
 
 ---
 
@@ -56,11 +59,11 @@ OpenLitter does **not** support the Litter Robot 4 (different mechanical and ele
 
 | Part                 | Notes                                                                   |
 |----------------------|-------------------------------------------------------------------------|
-| ESP32 dev board      | Any ESP32 (NodeMCU-32S, DevKitC, WROOM-32...), ~5 €                     |
-| L298N H-Bridge       | Drives the original 12 V DC globe motor, ~3 €                           |
+| ESP32 dev board      | Any ESP32 (NodeMCU-32S, DevKitC, WROOM-32...)                           |
+| L298N H-Bridge       | Drives the original 12 V DC globe motor                                 |
 | 12 V power supply    | Sized for the original motor (≥ 2 A recommended)                        |
-| 2× position sensors  | Detect the HOME and DUMP magnets on the globe. The firmware only reads a digital line, so either reed switches (cheap, 10 kΩ pull-up) or bipolar Hall ICs (e.g. A3144) work — settings are labelled "Hall HOME / DUMP" for historical reasons |
-| 1× micro switch      | Pedal switch (e.g. Honeywell/Omron SS-5GL). NC or NO, both supported    |
+| 2× position sensors  | Original in globe detect the HOME and DUMP magnets on the globe.        |
+| 1× micro switch      | Original in pedal. NC or NO, both supported                             |
 
 ### Optional
 
@@ -69,7 +72,6 @@ OpenLitter does **not** support the Litter Robot 4 (different mechanical and ele
 | HX711 + 4× load cells           | 4 cells (one per foot), 20 kg or 50 kg each, summed in parallel          |
 | HLK-LD2410C                     | 24 GHz mmWave presence sensor, mounted near the globe opening            |
 
-Indicative total cost without optional sensors: **~15 €**.
 
 ---
 
@@ -142,7 +144,7 @@ Open `http://192.168.4.1` from your phone, scan and pick your home WiFi, save. T
 The full list of compile-time defaults lives in [src/config.h](src/config.h). At runtime, every relevant setting is editable from the Web UI under **Settings**:
 
 - **Network** — WiFi credentials, hostname, static IP, recovery AP password.
-- **Timing** — wait-after-cat, cat fallback timeout, cycle watchdog, anti-pinch reverse time, cycle/empty overshoot past the DUMP magnet.
+- **Timing** — wait-after-cat, cat fallback timeout, cycle watchdog (per phase), anti-pinch reverse time, cycle/empty pause at DUMP, cycle level overshoot (sand shake past HOME).
 - **Hardware** — motor pins, motor speed, Hall pins, switch pin and type (NC/NO), debounce.
 - **Sensors** — weight sensor (capacity, threshold, tare), LD2410C presence sensor.
 - **MQTT** — broker, port, credentials, topic base, HA auto-discovery toggle.
