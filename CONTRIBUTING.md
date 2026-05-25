@@ -69,15 +69,6 @@ git config --global tag.gpgsign true
 
 Then add `~/.ssh/openlitter_signing.pub` to your GitHub account as a **Signing Key** (not Authentication Key) at [github.com/settings/keys](https://github.com/settings/keys). Pushes with unsigned commits are rejected on `main`.
 
-## Roadmap
-
-| Phase   | Scope                                                                   | Status          |
-|---------|-------------------------------------------------------------------------|-----------------|
-| Phase 1 | Core firmware: state machine, Web UI, MQTT, OTA                         | Released (v0.3) |
-| Phase 2 | HACS custom integration + Lovelace card ([OpenLitter-HA](https://github.com/davdlic/OpenLitter-HA)) | Pre-1.0         |
-| Phase 3 | Advanced PWA: push notifications, local history graphs                  | Planned         |
-| Phase 4 | Custom PCB replacing the ESP32 + L298N wiring                           | Planned         |
-
 ## License
 
 By contributing to OpenLitter you agree that your contributions are licensed under the **GNU General Public License v3.0**, the same license as the project itself. See [LICENSE](LICENSE).

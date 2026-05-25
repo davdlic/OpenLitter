@@ -170,12 +170,7 @@ OpenLitter integrates with Home Assistant in two ways:
 
 ---
 
-## Roadmap
-
-- **Phase 1 — Firmware** ✅ stable at v1.0.0, this repository.
-- **Phase 2 — HACS integration** ✅ stable at v1.0.0, [davdlic/OpenLitter-HA](https://github.com/davdlic/OpenLitter-HA).
-- **Phase 3 — Advanced PWA** ✅ Logs viewer, in-browser firmware update, 7-day history chart all shipped. Push notifications skipped intentionally — for alerts use the HA integration's bus events instead.
-- **Phase 4 — Custom PCB** — drop-in board replacing the L298N + ESP32 wiring. **In progress** as a separate hardware project; not blocking firmware releases.
+## Changelog
 
 See [CHANGELOG.md](CHANGELOG.md) for the per-release history.
 
