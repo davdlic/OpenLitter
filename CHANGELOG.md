@@ -4,6 +4,45 @@ All notable changes to this project will be documented here. The format
 loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.0.2] — 2026-06-01
+
+### Fixed
+- **Boot recovery still dumped litter when power cut during the leveling
+  phase past HOME.** The v1.0.1 fix handled the case where the globe was
+  past DUMP on the return leg, but if power was cut during
+  `CYCLING_LEVEL_OVERSHOOT` or `CYCLING_LEVEL_RETURN` (globe parked just
+  past HOME on the CW side), the blind CW recovery would drive over half
+  a revolution to reach HOME — passing through DUMP and through the
+  inverted-globe positions along the way, spilling clean litter.
+
+  The recovery is now **zone-aware**. Every state-machine transition
+  persists the coarse globe position (OUTBOUND / AT_DUMP / RETURN /
+  PAST_HOME_CW / PAST_HOME_CCW / SAFE) to NVS, deduped to a single write
+  per zone change (~6 writes per cycle, multi-year NVS lifetime even at
+  50 cycles/day). On boot the recovery reads the zone and picks the
+  SHORT direction back to HOME:
+
+  | Last persisted zone | Recovery direction |
+  |---------------------|--------------------|
+  | `PAST_HOME_CW`      | CCW (short way back) |
+  | `PAST_HOME_CCW`     | CW  (short way back) |
+  | `OUTBOUND` / `AT_DUMP` / `RETURN` | CW (won't cross DUMP) |
+
+- **Unknown-position fallback now runs a full reset instead of a blind
+  scan.** If NVS has no zone yet (fresh install, factory reset, NVS
+  corruption) or zone says `SAFE` but the HOME sensor disagrees (globe
+  moved by hand while off), the firmware kicks off a full **Reset cycle**
+  on boot — CCW → DUMP → pause → CW → leveling → HOME. Costs a few
+  seconds and may dump some clean litter, but always lands in a
+  known-good state at HOME. Replaces the v1.0.1 "blind CW with reverse
+  on DUMP" heuristic, which couldn't recover the past-HOME-CW case.
+
+### Notes
+- Fresh-install fallback is safe in practice because litter isn't loaded
+  yet. If you're swapping a non-OpenLitter board with litter still in
+  the globe, the firmware will trigger one reset cycle on first boot;
+  rotating the globe to HOME by hand before first power-on skips it.
+
 ## [1.0.1] — 2026-06-01
 
 ### Fixed
@@ -100,6 +139,7 @@ Initial firmware release. Web UI (PWA), state machine, MQTT with HA
 auto-discovery, REST + WebSocket APIs, ArduinoOTA, optional weight
 sensor (HX711) and presence sensor (HLK-LD2410C).
 
+[1.0.2]: https://github.com/davdlic/OpenLitter/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/davdlic/OpenLitter/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/davdlic/OpenLitter/compare/v0.4.1...v1.0.0
 [0.4.1]: https://github.com/davdlic/OpenLitter/compare/v0.4.0...v0.4.1

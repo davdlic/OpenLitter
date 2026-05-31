@@ -130,6 +130,9 @@ pio run -t buildfs -t uploadfs
 
 ### 6. First boot
 
+> [!TIP]
+> Before first power-on, **rotate the globe by hand to the HOME (upright) position** if there's still litter inside it (e.g. you're swapping out a non-OpenLitter board). On a fresh install with no litter loaded this doesn't matter. See the "Boot recovery" note in [the firmware section below](#boot-recovery) for why.
+
 On first boot OpenLitter starts an access point:
 
 - **SSID:** `OpenLitter-Setup`
@@ -137,6 +140,12 @@ On first boot OpenLitter starts an access point:
 - **IP:** `192.168.4.1`
 
 Open `http://192.168.4.1` from your phone, scan and pick your home WiFi, save. The device reboots and joins your network. From then on it is reachable at `http://openlitter.local`.
+
+#### Boot recovery
+
+If the device reboots (or recovers from a power cut) and the globe is **not** already at HOME — typical after a mains glitch mid-cycle — the firmware reads the last persisted globe-position zone from NVS and drives the globe back to HOME by the **shortest safe path**, never re-crossing DUMP. The state machine surfaces this as the `BOOT_RECOVERY` state (label "Recovering").
+
+On a fresh install with no NVS history (or after a factory reset, or if the globe is somewhere other than HOME with no usable zone info), the firmware runs a **full reset cycle** instead — `CCW → DUMP → pause → CW → leveling → HOME`. It always lands at HOME in a known-good state. The cost is a few seconds and potentially some clean litter dumped into the waste tray; on a fresh install with no litter loaded this is free.
 
 ---
 
