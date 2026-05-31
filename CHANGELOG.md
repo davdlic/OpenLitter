@@ -4,6 +4,29 @@ All notable changes to this project will be documented here. The format
 loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.0.1] — 2026-06-01
+
+### Fixed
+- **Boot recovery could re-dump clean litter.** When the device booted with
+  the globe past DUMP on the return leg of an interrupted cycle (typical
+  after a mains glitch during the level-overshoot or back-shake phase), the
+  old recovery drove CW back to HOME and crossed DUMP on the way, opening
+  the dump door and spilling clean litter into the waste tray.
+
+  The recovery is now a two-leg motion under the new `BOOT_RECOVERY` state:
+  drive CW first; if DUMP latches before HOME, stop, reverse to CCW and
+  reach HOME through the leveling zone instead — never re-crossing DUMP.
+  The cycle watchdog applies to both legs.
+
+  Reported and reproduced by the project owner with a simulated mains cut
+  mid-cycle.
+
+### Notes
+- New state name `BOOT_RECOVERY` exposed in `/api/status`, MQTT topics and
+  the Web UI badge (label: **Recovering**). Companion HA integration
+  v1.0.1 adds the friendly label to its STATE_LABELS map; older HA
+  integrations will show the raw `BOOT_RECOVERY` until they update.
+
 ## [1.0.0] — 2026-05-26
 
 First stable release. Public API (REST, WebSocket, MQTT topic layout) is
@@ -77,6 +100,7 @@ Initial firmware release. Web UI (PWA), state machine, MQTT with HA
 auto-discovery, REST + WebSocket APIs, ArduinoOTA, optional weight
 sensor (HX711) and presence sensor (HLK-LD2410C).
 
+[1.0.1]: https://github.com/davdlic/OpenLitter/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/davdlic/OpenLitter/compare/v0.4.1...v1.0.0
 [0.4.1]: https://github.com/davdlic/OpenLitter/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/davdlic/OpenLitter/compare/v0.3.0...v0.4.0

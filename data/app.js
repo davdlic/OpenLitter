@@ -365,6 +365,7 @@
       case 'EMPTYING':                     return 'EMPTYING';
       case 'EMPTYING_DUMP_PAUSE':          return 'DUMPING';
       case 'RESETTING':                    return 'RETURNING';
+      case 'BOOT_RECOVERY':                return 'RECOVERING';
       case 'PAUSED':                       return 'PAUSED';
       case 'ERROR':                        return 'ERROR';
       default:                             return s;
@@ -398,6 +399,7 @@
       case 'EMPTYING':                     return 'Rotating to dump position';
       case 'EMPTYING_DUMP_PAUSE':          return 'Stopped at dump — pull tray now';
       case 'RESETTING':                    return 'Returning globe to rest position';
+      case 'BOOT_RECOVERY':                return 'Recovering after a power cut — driving home safely';
       case 'PAUSED':                       return 'Paused — will auto-resume after grace period';
       case 'ERROR':                        return 'Error — check Logs, then press Reset';
       default:                             return '';

@@ -44,6 +44,7 @@ uint32_t cycleBeginMs = 0;          // when the *original* cycle/reset began (fo
 bool     levelReturnArmed = false;  // CYCLING_LEVEL_RETURN waits for HOME sensor to deactivate before re-arming the stop-at-HOME check
 bool     manualPause = false;       // true if PAUSED was entered via requestPause(), false if via anti-pinch
 bool     resetInProgress = false;   // true while requestReset() drives the CCW/OVERSHOOT/CW path; UI shows RESETTING and history skips the cycle record
+bool     bootRecoveryReversed = false;  // in BOOT_RECOVERY, switched to CCW after DUMP triggered (avoids re-crossing DUMP on the way back to HOME)
 
 uint32_t totalCycleCount = 0;
 uint32_t lastCycleTs = 0;
@@ -160,6 +161,7 @@ void loadHistory() {
 bool isMotionState(State s) {
     return s == State::CYCLING_CCW || s == State::CYCLING_CW
         || s == State::EMPTYING    || s == State::RESETTING
+        || s == State::BOOT_RECOVERY
         || s == State::CYCLING_DUMP_PAUSE
         || s == State::EMPTYING_DUMP_PAUSE
         || s == State::CYCLING_LEVEL_OVERSHOOT
@@ -434,14 +436,42 @@ void begin() {
         return;
     }
     // Globe is not at HOME on boot — could be a power cut mid-cycle, manual
-    // repositioning, or first install. Drive CW into RESETTING; the existing
-    // handleResetting() takes it the rest of the way and transitions to IDLE
-    // once the HOME sensor latches. Motion watchdog applies as usual.
-    Log::warn("Boot: globe not at HOME, returning to HOME");
+    // repositioning, or first install. Drive CW first; if DUMP latches before
+    // HOME we know we're past DUMP and reversing to CCW lets us reach HOME
+    // without re-crossing DUMP (which would re-open the dump door and spill
+    // clean litter that was already on the return leg). See handleBootRecovery.
+    Log::warn("Boot: globe not at HOME, entering BOOT_RECOVERY");
+    bootRecoveryReversed = false;
     Motor::cw(settings.motorSpeed);
     cycleStartMs = millis();
     lastMotionProgressMs = cycleStartMs;
-    transition(State::RESETTING);
+    transition(State::BOOT_RECOVERY);
+}
+
+void handleBootRecovery() {
+    runMotionWatchdog();
+    if (currentState != State::BOOT_RECOVERY) return;
+    if (Sensors::isHomePosition()) {
+        Motor::stop();
+        Log::info("Boot recovery complete, HOME reached (%s)",
+                  bootRecoveryReversed ? "via CCW reversal" : "via CW");
+        bootRecoveryReversed = false;
+        transition(State::IDLE);
+        return;
+    }
+    // First leg is CW. If DUMP triggers before HOME we were past DUMP on the
+    // return leg of a cycle that got interrupted — reverse direction so we
+    // reach HOME going around through the leveling zone instead of crossing
+    // DUMP again.
+    if (!bootRecoveryReversed && Sensors::isDumpPosition()) {
+        Log::warn("Boot recovery: DUMP latched on CW leg, reversing to CCW");
+        Motor::stop();
+        delay(150);   // small brake before reversing
+        bootRecoveryReversed = true;
+        Motor::ccw(settings.motorSpeed);
+        cycleStartMs = millis();
+        lastMotionProgressMs = cycleStartMs;
+    }
 }
 
 void loop() {
@@ -459,6 +489,7 @@ void loop() {
         case State::EMPTYING:                handleEmptying();              break;
         case State::EMPTYING_DUMP_PAUSE:     handleEmptyingDumpPause();     break;
         case State::RESETTING:              handleResetting();             break;
+        case State::BOOT_RECOVERY:          handleBootRecovery();          break;
         case State::PAUSED:                 handlePaused();                break;
         case State::ERROR:                  /* wait for manual reset */    break;
     }
@@ -481,6 +512,7 @@ const char *stateName(State s) {
         case State::EMPTYING:                return "EMPTYING";
         case State::EMPTYING_DUMP_PAUSE:     return "EMPTYING_DUMP_PAUSE";
         case State::RESETTING:              return "RESETTING";
+        case State::BOOT_RECOVERY:          return "BOOT_RECOVERY";
         case State::PAUSED:                 return "PAUSED";
         case State::ERROR:                  return "ERROR";
     }
