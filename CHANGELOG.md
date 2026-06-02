@@ -4,6 +4,21 @@ All notable changes to this project will be documented here. The format
 loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.0.4] — 2026-06-01
+
+### Changed
+- **Startup reset cycle now runs unconditionally on every boot**, including
+  when the globe is already at HOME. v1.0.3 still had an early-return for
+  the at-HOME case; that's gone. Every power-on / OTA restart / factory
+  reset / Web UI restart now produces the same behaviour:
+  `CCW → DUMP → pause → CW → leveling → HOME`. Predictable, no edge
+  cases. The cycle is still flagged `resetInProgress = true` so the UI
+  shows `RESETTING` and history skips the entry — it's a startup
+  routine, not a cleaning.
+
+  Requested by the project owner: *"mesmo que esteja na home não fazes o
+  clean mas eu quero faça a mesma"*.
+
 ## [1.0.3] — 2026-06-01
 
 ### Changed
@@ -165,6 +180,7 @@ Initial firmware release. Web UI (PWA), state machine, MQTT with HA
 auto-discovery, REST + WebSocket APIs, ArduinoOTA, optional weight
 sensor (HX711) and presence sensor (HLK-LD2410C).
 
+[1.0.4]: https://github.com/davdlic/OpenLitter/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/davdlic/OpenLitter/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/davdlic/OpenLitter/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/davdlic/OpenLitter/compare/v1.0.0...v1.0.1

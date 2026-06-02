@@ -140,7 +140,7 @@ Open `http://192.168.4.1` from your phone, scan and pick your home WiFi, save. T
 
 #### Boot recovery
 
-If the device boots and the globe is **not already at HOME** — power cut mid-cycle, fresh install with the globe in a random position, factory reset, or any other recovery scenario — the firmware runs a **full reset cycle**: `CCW → DUMP → pause → CW → leveling → HOME`. Always lands at HOME in a known-good state. The UI surfaces this as the `RESETTING` state, and the cycle is **not** counted in history. If the globe is already at HOME at boot the firmware skips this and goes straight to `IDLE`.
+Every boot — power-on, power-cut recovery, OTA restart, factory reset, fresh install, intentional reboot from the Web UI — the firmware runs a **full reset cycle**: `CCW → DUMP → pause → CW → leveling → HOME`. Always lands at HOME in a known-good state regardless of where the globe was. The UI surfaces this as the `RESETTING` state and the cycle is **not** counted in history (it's a startup routine, not a cleaning).
 
 ---
 

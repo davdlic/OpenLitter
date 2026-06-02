@@ -433,15 +433,11 @@ void begin() {
     // leveling -> HOME). Same path the user gets pressing Reset from the
     // Web UI. Always ends at HOME in a known-good state regardless of
     // where the globe is — handles power cuts mid-cycle, fresh installs,
-    // factory resets, manually-moved globes, and even normal restarts.
-    // Skipped only if the globe is already at HOME (most common case for
-    // an intentional reboot from IDLE).
-    if (Sensors::isHomePosition()) {
-        Log::info("Initialised in IDLE (globe at HOME)");
-        return;
-    }
+    // factory resets, manually-moved globes, AND intentional restarts.
+    // Runs unconditionally so the user gets the same behaviour every time
+    // the device powers up.
     uint32_t now = millis();
-    resetInProgress = true;   // surfaces as RESETTING in the UI and skips the history entry — this isn't a cleaning cycle, just a recovery
+    resetInProgress = true;   // surfaces as RESETTING in the UI and skips the history entry — this isn't a cleaning cycle, just a startup routine
     cycleBeginMs = now;
     cycleStartMs = now;
     lastMotionProgressMs = now;
@@ -449,11 +445,11 @@ void begin() {
         // Already AT DUMP — skip the outbound leg, go straight to dump pause.
         overshootStartMs = now;
         Motor::stop();
-        Log::warn("Boot: globe at DUMP -> full reset cycle from dump pause");
+        Log::warn("Boot: globe at DUMP -> startup reset cycle from dump pause");
         transition(State::CYCLING_DUMP_PAUSE);
     } else {
         Motor::ccw(settings.motorSpeed);
-        Log::warn("Boot: globe not at HOME -> full reset cycle (CCW -> DUMP -> CW -> leveling -> HOME)");
+        Log::warn("Boot: startup reset cycle (CCW -> DUMP -> CW -> leveling -> HOME)");
         transition(State::CYCLING_CCW);
     }
 }
