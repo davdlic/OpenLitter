@@ -44,82 +44,6 @@ uint32_t cycleBeginMs = 0;          // when the *original* cycle/reset began (fo
 bool     levelReturnArmed = false;  // CYCLING_LEVEL_RETURN waits for HOME sensor to deactivate before re-arming the stop-at-HOME check
 bool     manualPause = false;       // true if PAUSED was entered via requestPause(), false if via anti-pinch
 bool     resetInProgress = false;   // true while requestReset() drives the CCW/OVERSHOOT/CW path; UI shows RESETTING and history skips the cycle record
-// Coarse globe position zones persisted to NVS. On boot we read the last
-// saved zone and pick the SHORT direction back to HOME — critically, for
-// "past HOME on CW side" (LEVEL_OVERSHOOT/LEVEL_RETURN) we'd otherwise
-// drive CW for over half a revolution and dump litter via the inverted
-// globe. Keeping this coarse (not the full State enum) avoids NVS thrash:
-// we only write when the *zone* changes, not on every sub-phase.
-enum class Zone : uint8_t {
-    SAFE          = 0,  // at or very near HOME (IDLE / CAT_INSIDE / WAITING / PAUSED@home / ERROR)
-    OUTBOUND      = 1,  // HOME -> DUMP, CCW path before reaching DUMP (CYCLING_CCW / EMPTYING)
-    AT_DUMP       = 2,  // motor stopped at DUMP (CYCLING_DUMP_PAUSE / EMPTYING_DUMP_PAUSE)
-    RETURN        = 3,  // DUMP -> HOME, CW path before reaching HOME (CYCLING_CW)
-    PAST_HOME_CW  = 4,  // just past HOME on the CW side (CYCLING_LEVEL_OVERSHOOT / LEVEL_RETURN)
-    PAST_HOME_CCW = 5,  // just past HOME on the CCW side (LEVEL_BACK_OVERSHOOT / LEVEL_BACK_RETURN)
-    UNKNOWN       = 6,  // mid-RESETTING or mid-BOOT_RECOVERY when power cut again — fall back to scan
-};
-
-Zone lastSavedZone = Zone::SAFE;
-
-Zone stateToZone(State s) {
-    switch (s) {
-        case State::IDLE:
-        case State::CAT_INSIDE:
-        case State::WAITING:
-        case State::PAUSED:
-        case State::ERROR:
-            return Zone::SAFE;
-        case State::CYCLING_CCW:
-        case State::EMPTYING:
-            return Zone::OUTBOUND;
-        case State::CYCLING_DUMP_PAUSE:
-        case State::EMPTYING_DUMP_PAUSE:
-            return Zone::AT_DUMP;
-        case State::CYCLING_CW:
-            return Zone::RETURN;
-        case State::CYCLING_LEVEL_OVERSHOOT:
-        case State::CYCLING_LEVEL_RETURN:
-            return Zone::PAST_HOME_CW;
-        case State::CYCLING_LEVEL_BACK_OVERSHOOT:
-        case State::CYCLING_LEVEL_BACK_RETURN:
-            return Zone::PAST_HOME_CCW;
-        case State::RESETTING:
-        case State::BOOT_RECOVERY:
-            return Zone::UNKNOWN;
-    }
-    return Zone::UNKNOWN;
-}
-
-void persistZone(Zone z) {
-    if (z == lastSavedZone) return;  // dedupe — single write per zone change
-    Preferences prefs;
-    if (!prefs.begin(NVS_NAMESPACE, /*readOnly=*/false)) return;
-    prefs.putUChar(NVS_KEY_LAST_ZONE, (uint8_t)z);
-    prefs.end();
-    lastSavedZone = z;
-}
-
-Zone loadZone() {
-    Preferences prefs;
-    if (!prefs.begin(NVS_NAMESPACE, /*readOnly=*/true)) return Zone::UNKNOWN;
-    uint8_t v = prefs.getUChar(NVS_KEY_LAST_ZONE, (uint8_t)Zone::UNKNOWN);
-    prefs.end();
-    if (v > (uint8_t)Zone::UNKNOWN) return Zone::UNKNOWN;
-    return (Zone)v;
-}
-
-// Boot recovery strategies. Chosen at begin() time from the persisted zone.
-// The UNKNOWN case (fresh install, factory reset, NVS corruption) doesn't
-// use BOOT_RECOVERY at all — it triggers a full Reset cycle from begin()
-// directly, which always ends at HOME in a known-good state. The short
-// strategies below are only used when we DO have a persisted zone and
-// can pick a path that won't cross DUMP.
-enum class BootRecoveryStrategy : uint8_t {
-    DIRECT_CW,           // drive CW until HOME — path known safe (e.g. past_home_ccw, short way is CW)
-    DIRECT_CCW,          // drive CCW until HOME — path known safe (e.g. past_home_cw, short way is CCW)
-};
-BootRecoveryStrategy bootRecoveryStrategy = BootRecoveryStrategy::DIRECT_CW;
 
 uint32_t totalCycleCount = 0;
 uint32_t lastCycleTs = 0;
@@ -138,11 +62,6 @@ void transition(State next) {
     State prev = currentState;
     currentState = next;
     Log::info("State %s -> %s", stateName(prev), stateName(next));
-    // Persist coarse zone so boot recovery knows the safe direction back
-    // to HOME if power cuts mid-cycle. persistZone() dedupes — no NVS
-    // write if the zone is unchanged (e.g. CYCLING_LEVEL_OVERSHOOT ->
-    // CYCLING_LEVEL_RETURN both map to PAST_HOME_CW).
-    persistZone(stateToZone(next));
     fireStateChange(prev, next);
 }
 
@@ -241,7 +160,6 @@ void loadHistory() {
 bool isMotionState(State s) {
     return s == State::CYCLING_CCW || s == State::CYCLING_CW
         || s == State::EMPTYING    || s == State::RESETTING
-        || s == State::BOOT_RECOVERY
         || s == State::CYCLING_DUMP_PAUSE
         || s == State::EMPTYING_DUMP_PAUSE
         || s == State::CYCLING_LEVEL_OVERSHOOT
@@ -511,87 +429,33 @@ void handlePaused() {
 void begin() {
     bootMillis = millis();
     loadHistory();
-    lastSavedZone = loadZone();
+    // On every boot, run a full reset cycle (CCW -> DUMP -> pause -> CW ->
+    // leveling -> HOME). Same path the user gets pressing Reset from the
+    // Web UI. Always ends at HOME in a known-good state regardless of
+    // where the globe is — handles power cuts mid-cycle, fresh installs,
+    // factory resets, manually-moved globes, and even normal restarts.
+    // Skipped only if the globe is already at HOME (most common case for
+    // an intentional reboot from IDLE).
     if (Sensors::isHomePosition()) {
-        // Globe already at HOME — clear any stale zone and go IDLE.
-        Log::info("Initialised in IDLE (globe at HOME, last_zone=%u)",
-                  (unsigned)lastSavedZone);
-        if (lastSavedZone != Zone::SAFE) persistZone(Zone::SAFE);
+        Log::info("Initialised in IDLE (globe at HOME)");
         return;
     }
-    // Globe not at HOME. Two paths from here:
-    //
-    //   1. Persisted zone tells us roughly where we were interrupted — we
-    //      pick the SHORT direction back to HOME (BOOT_RECOVERY state) and
-    //      we know the path won't cross DUMP.
-    //
-    //   2. No persisted zone (fresh install, factory reset, NVS corruption)
-    //      or zone says SAFE but globe isn't at HOME (someone moved it by
-    //      hand) — we have no reliable info, so we run a FULL RESET cycle
-    //      (CCW -> DUMP -> pause -> CW -> leveling -> HOME). Costs a few
-    //      seconds and may dump some clean litter, but always ends in a
-    //      known-good state at HOME.
-    Zone z = lastSavedZone;
     uint32_t now = millis();
-    cycleStartMs = now;
+    resetInProgress = true;   // surfaces as RESETTING in the UI and skips the history entry — this isn't a cleaning cycle, just a recovery
     cycleBeginMs = now;
+    cycleStartMs = now;
     lastMotionProgressMs = now;
-
-    switch (z) {
-        case Zone::PAST_HOME_CW:
-            bootRecoveryStrategy = BootRecoveryStrategy::DIRECT_CCW;
-            Motor::ccw(settings.motorSpeed);
-            Log::warn("Boot: globe not at HOME, BOOT_RECOVERY DIRECT_CCW (short way, was past HOME on CW side)");
-            transition(State::BOOT_RECOVERY);
-            return;
-        case Zone::PAST_HOME_CCW:
-            bootRecoveryStrategy = BootRecoveryStrategy::DIRECT_CW;
-            Motor::cw(settings.motorSpeed);
-            Log::warn("Boot: globe not at HOME, BOOT_RECOVERY DIRECT_CW (short way, was past HOME on CCW side)");
-            transition(State::BOOT_RECOVERY);
-            return;
-        case Zone::OUTBOUND:
-        case Zone::AT_DUMP:
-        case Zone::RETURN:
-            bootRecoveryStrategy = BootRecoveryStrategy::DIRECT_CW;
-            Motor::cw(settings.motorSpeed);
-            Log::warn("Boot: globe not at HOME, BOOT_RECOVERY DIRECT_CW (return path, won't cross DUMP)");
-            transition(State::BOOT_RECOVERY);
-            return;
-        case Zone::SAFE:
-        case Zone::UNKNOWN:
-        default:
-            break;  // fall through to the full-reset path below
-    }
-
-    // No usable zone info. Run a full reset cycle — same path as the user
-    // pressing Reset from the Web UI. Ends at HOME in a known-good state.
-    resetInProgress = true;
     if (Sensors::isDumpPosition()) {
         // Already AT DUMP — skip the outbound leg, go straight to dump pause.
         overshootStartMs = now;
         Motor::stop();
-        Log::warn("Boot: globe not at HOME, no zone info, AT DUMP -> full reset (skip outbound)");
+        Log::warn("Boot: globe at DUMP -> full reset cycle from dump pause");
         transition(State::CYCLING_DUMP_PAUSE);
     } else {
         Motor::ccw(settings.motorSpeed);
-        Log::warn("Boot: globe not at HOME, no zone info -> full reset cycle (CCW -> DUMP -> CW -> leveling -> HOME)");
+        Log::warn("Boot: globe not at HOME -> full reset cycle (CCW -> DUMP -> CW -> leveling -> HOME)");
         transition(State::CYCLING_CCW);
     }
-}
-
-void handleBootRecovery() {
-    runMotionWatchdog();
-    if (currentState != State::BOOT_RECOVERY) return;
-    if (Sensors::isHomePosition()) {
-        Motor::stop();
-        Log::info("Boot recovery complete, HOME reached");
-        transition(State::IDLE);
-    }
-    // No DUMP guard needed — begin() only enters BOOT_RECOVERY when we have
-    // a persisted zone that guarantees a DUMP-free path back to HOME. The
-    // UNKNOWN/SAFE-but-not-home cases skip BOOT_RECOVERY entirely and run a
-    // full reset cycle instead (see begin()).
 }
 
 void loop() {
@@ -609,7 +473,6 @@ void loop() {
         case State::EMPTYING:                handleEmptying();              break;
         case State::EMPTYING_DUMP_PAUSE:     handleEmptyingDumpPause();     break;
         case State::RESETTING:              handleResetting();             break;
-        case State::BOOT_RECOVERY:          handleBootRecovery();          break;
         case State::PAUSED:                 handlePaused();                break;
         case State::ERROR:                  /* wait for manual reset */    break;
     }
@@ -632,7 +495,6 @@ const char *stateName(State s) {
         case State::EMPTYING:                return "EMPTYING";
         case State::EMPTYING_DUMP_PAUSE:     return "EMPTYING_DUMP_PAUSE";
         case State::RESETTING:              return "RESETTING";
-        case State::BOOT_RECOVERY:          return "BOOT_RECOVERY";
         case State::PAUSED:                 return "PAUSED";
         case State::ERROR:                  return "ERROR";
     }

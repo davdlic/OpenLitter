@@ -28,7 +28,7 @@
 #include <Arduino.h>
 
 // --- FIRMWARE METADATA ---
-#define OPENLITTER_VERSION  "1.0.2"
+#define OPENLITTER_VERSION  "1.0.3"
 
 // --- MOTOR PINS (L298N) ---
 // Every pin is also editable from Settings -> Hardware at runtime.
@@ -126,4 +126,3 @@
 #define NVS_KEY_WIFI_PASS   "wifi_pass"
 #define NVS_KEY_SETTINGS    "settings"
 #define NVS_KEY_HISTORY     "history"
-#define NVS_KEY_LAST_ZONE   "last_zone"   // last globe position zone; read on boot to choose safe recovery direction

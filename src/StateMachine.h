@@ -25,7 +25,6 @@ enum class State : uint8_t {
     EMPTYING,
     EMPTYING_DUMP_PAUSE,       // motor STOPPED at DUMP for empty_dump_pause_sec (pull tray)
     RESETTING,
-    BOOT_RECOVERY,             // on boot, globe not at HOME: drive CW until HOME, but reverse to CCW if DUMP triggers first (avoids re-dumping litter)
     PAUSED,
     ERROR,
 };

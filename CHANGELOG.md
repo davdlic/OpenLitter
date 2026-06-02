@@ -4,6 +4,32 @@ All notable changes to this project will be documented here. The format
 loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.0.3] — 2026-06-01
+
+### Changed
+- **Boot recovery simplified to always run a full reset cycle.** v1.0.1 and
+  v1.0.2 tried to be clever — persisting a coarse globe-position zone to
+  NVS on every state transition, then picking the "short safe path" back
+  to HOME at boot. Real-hardware testing showed enough corner cases that
+  the simpler rule wins: on every boot, if the globe is not at HOME, run
+  the same cycle the user would get pressing **Reset** — `CCW → DUMP →
+  pause → CW → leveling → HOME`. Always ends at HOME in a known-good
+  state, regardless of where the globe happens to be.
+
+  Removed: the `BOOT_RECOVERY` state, the `Zone` enum, `last_zone` NVS
+  key, `persistZone`/`loadZone`/`stateToZone` helpers, and the
+  `BootRecoveryStrategy` selector. Net change is ~150 lines deleted,
+  same recovery guarantees, much easier to reason about.
+
+  Flash 51.0% (-0.1 pp vs. v1.0.2); RAM unchanged.
+
+### Notes
+- The recovery cycle is internally a Reset (resetInProgress = true), so
+  the UI shows **Returning** during recovery and the cycle is NOT added
+  to history — it's a system action, not a cleaning.
+- Companion HA integration drops the `BOOT_RECOVERY → Recovering` label
+  introduced in v1.0.1 since the state no longer exists.
+
 ## [1.0.2] — 2026-06-01
 
 ### Fixed
@@ -139,6 +165,7 @@ Initial firmware release. Web UI (PWA), state machine, MQTT with HA
 auto-discovery, REST + WebSocket APIs, ArduinoOTA, optional weight
 sensor (HX711) and presence sensor (HLK-LD2410C).
 
+[1.0.3]: https://github.com/davdlic/OpenLitter/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/davdlic/OpenLitter/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/davdlic/OpenLitter/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/davdlic/OpenLitter/compare/v0.4.1...v1.0.0
